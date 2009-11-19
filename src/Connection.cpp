@@ -143,6 +143,12 @@ void Connection::socketRead() {
 		if ((iPacketLength == -1) || (iAvailable < iPacketLength))
 			return;
 
+		if (iPacketLength > 0x7fffff) {
+			qWarning() << "disconnected host because it sent a too large packet";
+			disconnectSocket(true);
+			return;
+		}
+
 		QByteArray qbaBuffer = qtsSocket->read(iPacketLength);
 		iPacketLength = -1;
 		iAvailable -= iPacketLength;
