@@ -50,7 +50,8 @@ LookConfig::LookConfig(Settings &st) : ConfigWidget(st) {
 		qgbTray->hide();
 
 	qcbLanguage->addItem(tr("System default"));
-	QDir d(QLatin1String(":"),QLatin1String("mumble_*.qm"),QDir::Name,QDir::Files);
+	QDir d(QLatin1String("translation:"), QLatin1String("mumble_*.qm"), QDir::Name, QDir::Files);
+
 	QStringList langs;
 	foreach(const QString &key, d.entryList()) {
 		QString cc = key.mid(7,key.indexOf(QLatin1Char('.'))-7);

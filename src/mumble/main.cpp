@@ -272,7 +272,7 @@ int main(int argc, char **argv) {
 	}
 
 	QDir::addSearchPath(QLatin1String("skin"),QLatin1String(":/"));
-	QDir::addSearchPath(QLatin1String("translation"), QLatin1String(":/"));
+	QDir::addSearchPath(QLatin1String("translation"), a.applicationDirPath() + QLatin1String("/lang"));
 
 	QString qsSystemLocale = QLocale::system().name();
 
@@ -287,19 +287,15 @@ int main(int argc, char **argv) {
 
 	QString locale = g.s.qsLanguage.isEmpty() ? qsSystemLocale : g.s.qsLanguage;
 
-	QTranslator translator;
-	if (translator.load(QLatin1String("translation:mumble_") + locale))
-		a.installTranslator(&translator);
-
-	QTranslator loctranslator;
-	if (loctranslator.load(QLatin1String("mumble_") + locale, a.applicationDirPath()))
-		a.installTranslator(&loctranslator);
-
 	QTranslator qttranslator;
 	if (qttranslator.load(QLibraryInfo::location(QLibraryInfo::TranslationsPath) + QLatin1String("/qt_") + locale))
 		a.installTranslator(&qttranslator);
 	else if (qttranslator.load(QLatin1String("translation:qt_") + locale))
 		a.installTranslator(&qttranslator);
+
+	QTranslator translator;
+	if (translator.load(QLatin1String("translation:mumble_") + locale))
+		a.installTranslator(&translator);
 
 	if (g.s.qsRegionalHost.isEmpty()) {
 		g.s.qsRegionalHost = qsSystemLocale;

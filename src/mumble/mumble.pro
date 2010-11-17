@@ -281,38 +281,9 @@ CONFIG(no-update) {
 	DEFINES *= NO_UPDATE_CHECK
 }
 
-!CONFIG(no-embed-qt-translations) {
-	QT_TRANSDIR = $$[QT_INSTALL_TRANSLATIONS]/
-	QT_TRANSDIR = $$replace(QT_TRANSDIR,/,$${DIR_SEPARATOR})
-
-	QT_TRANSDIR = $$[QT_INSTALL_TRANSLATIONS]/
-	QT_TRANSDIR = $$replace(QT_TRANSDIR,/,$${DIR_SEPARATOR})
-
-	QT_TRANSLATION_FILES_SRC *= qt_de.qm qt_es.qm qt_fr.qm qt_ja.qm qt_ja_JP.qm qt_ru.qm qt_pl.qm qt_pt.qm qt_sv.qm qt_zh_CN.qm qt_zh_TW.qm
-
-	for(lang, QT_TRANSLATION_FILES_SRC):exists($$[QT_INSTALL_TRANSLATIONS]/$${lang}) {
-		QT_TRANSLATION_FILES *= $${lang}
-	}
-
-	copytrans.output = ${QMAKE_FILE_NAME}
-	copytrans.commands = $$QMAKE_COPY $${QT_TRANSDIR}${QMAKE_FILE_NAME} ${QMAKE_FILE_OUT}
-	copytrans.input = QT_TRANSLATION_FILES
-	copytrans.CONFIG *= no_link target_predeps
-
-	QMAKE_EXTRA_COMPILERS *= copytrans
-
-	RESOURCES *= mumble_qt.qrc
-}
-
 !CONFIG(no-embed-tango-icons) {
 	RESOURCES *= mumble_tango.qrc
 }
 
-lrel.output = ${QMAKE_FILE_BASE}.qm
-lrel.commands = $${QMAKE_LRELEASE} ${QMAKE_FILE_NAME}
-lrel.input = TRANSLATIONS
-lrel.CONFIG *= no_link target_predeps
-
-QMAKE_EXTRA_COMPILERS *= lrel
 
 include(../../symbols.pri)
