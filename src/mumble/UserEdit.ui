@@ -20,13 +20,6 @@
       <string>Registered Users</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="0" column="1">
-       <widget class="QPushButton" name="qpbRemove">
-        <property name="text">
-         <string>Remove</string>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="0">
        <widget class="QListWidget" name="qlwUserList">
         <property name="sortingEnabled">
@@ -35,6 +28,20 @@
        </widget>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="qpbRemove">
+     <property name="text">
+      <string>&amp;Delete</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="qbpRename">
+     <property name="text">
+      <string>&amp;Rename</string>
+     </property>
     </widget>
    </item>
    <item>
@@ -52,6 +59,7 @@
  <tabstops>
   <tabstop>qlwUserList</tabstop>
   <tabstop>qpbRemove</tabstop>
+  <tabstop>qbpRename</tabstop>
   <tabstop>qbbButtons</tabstop>
  </tabstops>
  <resources/>
@@ -88,5 +96,24 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>qbpRename</sender>
+   <signal>clicked()</signal>
+   <receiver>UserEdit</receiver>
+   <slot>renameTriggered()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>235</x>
+     <y>351</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>235</x>
+     <y>200</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
+ <slots>
+  <slot>renameTriggered()</slot>
+ </slots>
 </ui>
