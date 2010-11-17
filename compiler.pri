@@ -43,14 +43,14 @@ win32 {
 			QMAKE_CXXFLAGS *= -Qprof-use
 		}
 	} else {
-		QMAKE_CFLAGS_RELEASE *= -Ox -Ot /fp:fast /Qfast_transcendentals -Ob2
-		QMAKE_CXXFLAGS_RELEASE *= -Ox -Ot /fp:fast /Qfast_transcendentals -Ob2
-		QMAKE_LFLAGS_RELEASE *= /SafeSEH /NXCOMPAT /DYNAMICBASE
+		QMAKE_CFLAGS_RELEASE *= /fp:fast /Qfast_transcendentals
+		QMAKE_CXXFLAGS_RELEASE *= /fp:fast /Qfast_transcendentals
+		QMAKE_LFLAGS_RELEASE *= /SafeSEH
 		CONFIG(analyze) {
 			QMAKE_CFLAGS_DEBUG *= /analyze
 			QMAKE_CXXFLAGS_DEBUG *= /analyze
 		}
-		DEFINES *= RESTRICT=
+		DEFINES *= RESTRICT=__restrict
 		CONFIG(sse2) {
 		      QMAKE_CFLAGS_RELEASE -= -arch:SSE
 		      QMAKE_CFLAGS_DEBUG -= -arch:SSE
