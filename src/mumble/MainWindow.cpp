@@ -703,6 +703,8 @@ void MainWindow::openUrl(const QUrl &url) {
 	QString name;
 	if (url.hasQueryItem(QLatin1String("title")))
 		name = url.queryItemValue(QLatin1String("title"));
+	if (pw.isEmpty() && url.hasQueryItem(QLatin1String("password")))
+		pw = url.queryItemValue(QLatin1String("password"));
 
 	if (g.sh && g.sh->isRunning()) {
 		QString oHost, oUser, oPw;
