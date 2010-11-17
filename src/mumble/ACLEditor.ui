@@ -75,7 +75,7 @@
          </property>
          <property name="whatsThis">
           <string>&lt;b&gt;Temporary&lt;/b&gt;&lt;br /&gt;
-When checked the channel created will be marked as temporary. This means when the last player leaves it the channel will be automatically deleted by the server.</string>
+Marks the created channel as temporary. It will be automatically deleted when the last user leaves.</string>
          </property>
          <property name="text">
           <string>Temporary</string>
@@ -95,7 +95,7 @@ When checked the channel created will be marked as temporary. This means when th
          </property>
          <property name="whatsThis">
           <string>&lt;b&gt;Position&lt;/b&gt;&lt;br/&gt;
-This value enables you to change the way Mumble arranges the channels in the tree. A channel with a higher &lt;i&gt;Position&lt;/i&gt; value will always be placed below one with a lower value and the other way around. If the &lt;i&gt;Position&lt;/i&gt; value of two channels is equal they will get sorted alphabetically by their name.</string>
+This value changes the way Mumble arranges the channels in the tree. A channel with a higher &lt;i&gt;Position&lt;/i&gt; value will always be placed below one with a lower value and the other way around. If the &lt;i&gt;Position&lt;/i&gt; value of two channels is equal they will be sorted alphabetically using their name.</string>
          </property>
          <property name="maximum">
           <number>99</number>
@@ -157,7 +157,7 @@ This value enables you to change the way Mumble arranges the channels in the tre
             </property>
             <property name="whatsThis">
              <string>&lt;b&gt;Group&lt;/b&gt;&lt;br /&gt;
-These are all the groups currently defined for the channel. To create a new group, just type in the name and press enter.</string>
+Displays all groups currently defined for this channel. To create a new group, just type in the name and press enter.</string>
             </property>
             <property name="editable">
              <bool>true</bool>
@@ -213,7 +213,7 @@ Add a new group.</string>
              <string>Make group inheritable to sub-channels</string>
             </property>
             <property name="whatsThis">
-             <string>&lt;b&gt;Inheritable&lt;/b&gt;&lt;br /&gt;This makes this group inheritable to sub-channels. If the group is non-inheritable, sub-channels are still free to create a new group with the same name.</string>
+             <string>&lt;b&gt;Inheritable&lt;/b&gt;&lt;br /&gt;This allows this group to be inherited by sub-channels. If the group is non-inheritable, sub-channels are still free to create a new group with the same name.</string>
             </property>
             <property name="text">
              <string>Inheritable</string>
@@ -229,7 +229,7 @@ Add a new group.</string>
              <string>Group was inherited from parent channel</string>
             </property>
             <property name="whatsThis">
-             <string>&lt;b&gt;Inherited&lt;/b&gt;&lt;br /&gt;This indicates that the group was inherited from the parent channel. You cannot edit this flag, it's just for information.</string>
+             <string>&lt;b&gt;Inherited&lt;/b&gt;&lt;br /&gt;This indicates that the group was inherited from the parent channel. You cannot edit this flag, you have to edit the channel defining this group to change it.</string>
             </property>
             <property name="text">
              <string>Inherited</string>
@@ -272,7 +272,7 @@ Add a new group.</string>
             </property>
             <property name="whatsThis">
              <string>&lt;b&gt;Members&lt;/b&gt;&lt;br /&gt;
-This list contains all members that were added to the group by the current channel. Be aware that this does not include members inherited by higher levels of the channel tree. These can be found in the &lt;i&gt;Inherited members&lt;/i&gt; list. To prevent this list to be inherited by lower level channels uncheck &lt;i&gt;Inheritable&lt;/i&gt; or manually add the members to the &lt;i&gt;Excluded members&lt;/i&gt; list.</string>
+This list contains all members that were added to the group by the current channel. Be aware that this does not include members inherited from higher levels of the channel tree. These can be found in the &lt;i&gt;Inherited members&lt;/i&gt; list. To prevent this list to be inherited by lower level channels uncheck &lt;i&gt;Inheritable&lt;/i&gt; or manually add the members to the &lt;i&gt;Excluded members&lt;/i&gt; list.</string>
             </property>
            </widget>
           </item>
@@ -283,18 +283,18 @@ This list contains all members that were added to the group by the current chann
             </property>
             <property name="whatsThis">
              <string>&lt;b&gt;Excluded members&lt;/b&gt;&lt;br /&gt;
-Contains a list of members whose group membership will not be inherited from the parent channel.</string>
+This list contains all members whose group membership will not be inherited from the parent channel.</string>
             </property>
            </widget>
           </item>
           <item row="1" column="6" rowspan="2">
            <widget class="QListWidget" name="qlwGroupInherit">
             <property name="toolTip">
-             <string>Contains the list of members inherited by other channels.</string>
+             <string>Contains the list of members inherited from other channels.</string>
             </property>
             <property name="whatsThis">
              <string>&lt;b&gt;Inherited members&lt;/b&gt;&lt;br /&gt;
-Contains the list of members inherited by the current channel. Uncheck &lt;i&gt;Inherit&lt;/i&gt; to prevent inheritance from higher level channels.</string>
+This list contains all members inherited by the current channel. Uncheck &lt;i&gt;Inherit&lt;/i&gt; to prevent inheritance from higher level channels.</string>
             </property>
            </widget>
           </item>
@@ -417,7 +417,7 @@ Contains the list of members inherited by the current channel. Uncheck &lt;i&gt;
                <string>List of entries</string>
               </property>
               <property name="whatsThis">
-               <string>This shows all the entries active on this channel. Entries inherited from parent channels will be shown in italics.&lt;br /&gt;ACLs are evaluated top to bottom, meaning priority increases as you move down the list.</string>
+               <string>Displays all active entries for this channel. Entries inherited from parent channels are shown in italics.&lt;br /&gt;ACLs are evaluated top to bottom, which means that the priority increases as you move down the list.</string>
               </property>
              </widget>
             </item>
@@ -440,7 +440,7 @@ Contains the list of members inherited by the current channel. Uncheck &lt;i&gt;
                <string>Move entry up</string>
               </property>
               <property name="whatsThis">
-               <string>This moves the entry up in the list. As entries are evaluated in order, this may change the effective permissions of users. You cannot move an entry above an inherited entry, if you really need that you'll have to duplicate the inherited entry.</string>
+               <string>This moves the entry to a higher position in the list. As entries are evaluated in order, this may change the effective permissions of users. You cannot move an entry above an inherited entry, duplicate the inherited entry if you really need that.</string>
               </property>
               <property name="text">
                <string>&amp;Up</string>
@@ -456,7 +456,7 @@ Contains the list of members inherited by the current channel. Uncheck &lt;i&gt;
                <string>Move entry down</string>
               </property>
               <property name="whatsThis">
-               <string>This moves the entry down in the list. As entries are evaluated in order, this may change the effective permissions of users.</string>
+               <string>This moves the entry to a lower position in the list. As entries are evaluated in order, this may change the effective permissions of users.</string>
               </property>
               <property name="text">
                <string>&amp;Down</string>
@@ -472,7 +472,7 @@ Contains the list of members inherited by the current channel. Uncheck &lt;i&gt;
                <string>Add new entry</string>
               </property>
               <property name="whatsThis">
-               <string>This adds a new entry, initially set with no permissions and applying to all.</string>
+               <string>This adds a new entry. Initially an entry grants no permissions and applies to all users.</string>
               </property>
               <property name="text">
                <string>&amp;Add</string>
@@ -576,7 +576,7 @@ Contains the list of members inherited by the current channel. Uncheck &lt;i&gt;
                <string>Group this entry applies to</string>
               </property>
               <property name="whatsThis">
-               <string>This controls which group of users this entry applies to.&lt;br /&gt;Note that the group is evaluated in the context of the channel the entry is used in. For example, the default ACL on the Root channel gives &lt;i&gt;Write&lt;/i&gt; permission to the &lt;i&gt;admin&lt;/i&gt; group. This entry, if inherited by a channel, will give a user write privileges if he belongs to the &lt;i&gt;admin&lt;/i&gt; group in that channel, even if he doesn't belong to the &lt;i&gt;admin&lt;/i&gt; group in the channel where the ACL originated.&lt;br /&gt;If a group name starts with '!', its membership is negated, and if it starts with '~', it is evaluated in the channel the ACL was defined in, rather than the channel the ACL is active in.&lt;br /&gt;If a group name starts with '#', it is interpreted as an access token. Users must have entered whatever follows the '#' in their list of access tokens to match. This can be used for very simple password access to channels for non-authenticated users.&lt;br /&gt;If a group name starts with '$', it will only match users whose certificate hash matches what follows the '$'.&lt;br /&gt;A few special predefined groups are:&lt;br /&gt;&lt;b&gt;all&lt;/b&gt; - Everyone will match.&lt;br /&gt;&lt;b&gt;auth&lt;/b&gt; - All authenticated users will match.&lt;br /&gt;&lt;b&gt;sub,a,b,c&lt;/b&gt; - User currently in a sub-channel minimum &lt;i&gt;a&lt;/i&gt; common parents, and between &lt;i&gt;b&lt;/i&gt; and &lt;i&gt;c&lt;/i&gt; channels down the chain. See the website for more extensive documentation on this one.&lt;br /&gt;&lt;b&gt;in&lt;/b&gt; - Users currently in the channel will match (convenience for '&lt;i&gt;sub,0,0,0&lt;/i&gt;').&lt;br /&gt;&lt;b&gt;out&lt;/b&gt; - Users outside the channel will match (convenience for '&lt;i&gt;!sub,0,0,0&lt;/i&gt;').&lt;br /&gt;Note that an entry applies to either a user or a group, not both.</string>
+               <string>This controls the group of users to which this entry applies.&lt;br /&gt;Note that the group is evaluated in the context of the channel the entry is used in. For example, the default ACL on the Root channel grants &lt;i&gt;Write&lt;/i&gt; permission to the &lt;i&gt;admin&lt;/i&gt; group. This entry, if inherited by a channel, will grant a user write privileges if he belongs to the &lt;i&gt;admin&lt;/i&gt; group in that channel, even if he doesn't belong to the &lt;i&gt;admin&lt;/i&gt; group in the channel where the ACL originated.&lt;br /&gt;If a group name starts with '!', its membership is negated, and if it starts with '~', it is evaluated in the channel the ACL was defined in, rather than the channel the ACL is active in.&lt;br /&gt;If a group name starts with '#', it is interpreted as an access token. Users must enter whatever follows the '#' in their list of access tokens for it to match. This can be used for very simple password based access to channels for non-authenticated users.&lt;br /&gt;If a group name starts with '$', it will only match users whose certificate hash matches what follows the '$'.&lt;br /&gt;A few special predefined groups are:&lt;br /&gt;&lt;b&gt;all&lt;/b&gt; - Matches all users.&lt;br /&gt;&lt;b&gt;auth&lt;/b&gt; - Matches all authenticated users.&lt;br /&gt;&lt;b&gt;sub,a,b,c&lt;/b&gt; - Matches users currently in a sub-channel minimum &lt;i&gt;a&lt;/i&gt; common parents, and between &lt;i&gt;b&lt;/i&gt; and &lt;i&gt;c&lt;/i&gt; channels down the chain. See the website for more extensive documentation on this one.&lt;br /&gt;&lt;b&gt;in&lt;/b&gt; - Matches users currently in the channel (convenience for '&lt;i&gt;sub,0,0,0&lt;/i&gt;').&lt;br /&gt;&lt;b&gt;out&lt;/b&gt; - Matches users outside the channel (convenience for '&lt;i&gt;!sub,0,0,0&lt;/i&gt;').&lt;br /&gt;Note that an entry applies to either a user or a group, not both.</string>
               </property>
               <property name="editable">
                <bool>true</bool>
