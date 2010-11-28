@@ -34,6 +34,7 @@
 #include "ACL.h"
 #include "Group.h"
 #include "Message.h"
+#include "Meta.h"
 #include "ServerDB.h"
 #include "Connection.h"
 #include "Server.h"
@@ -93,6 +94,22 @@
 			mppd.set_session(user->uiSession); \
 		sendMessage(uSource, mppd); \
 	}
+
+namespace {
+
+bool validateRegExp(const QString& re) {
+	QRegExp r(re);
+
+	if (!r.isValid())
+		return false;
+
+	if (!r.exactMatch("abc"))
+		return false;
+
+	return true;
+}
+
+}
 
 void Server::msgAuthenticate(ServerUser *uSource, MumbleProto::Authenticate &msg) {
 	if ((msg.tokens_size() > 0) || (uSource->sState == ServerUser::Authenticated)) {
@@ -1635,7 +1652,145 @@ void Server::msgRequestBlob(ServerUser *uSource, MumbleProto::RequestBlob &msg) 
 	}
 }
 
-void Server::msgServerConfig(ServerUser *, MumbleProto::ServerConfig &) {
+void Server::msgServerConfig(ServerUser *uSource, MumbleProto::ServerConfig &msg) {
+	MSG_SETUP_NO_UNIDLE(ServerUser::Authenticated);
+
+	// SuperUser only
+	if (uSource->iId != 0)
+		return;
+
+	if (!Meta::mp.bLiveReconfig)
+		return;
+
+	if (msg.has_query() && msg.query()) {
+		MumbleProto::ServerConfig mpsc;
+		if (!Meta::mp.bLiveReconfigDisableServerPasswordOption)
+			mpsc.set_serverpassword(u8(qsPassword));
+		mpsc.set_defaultchannel(iDefaultChan);
+
+		if (Meta::mp.bLiveReconfigDisableBandwidthOption)
+			mpsc.set_bandwidth(-iMaxBandwidth);
+		else
+			mpsc.set_bandwidth(iMaxBandwidth);
+
+		if (Meta::mp.bLiveReconfigDisableUsersOption)
+			mpsc.set_users(-iMaxUsers);
+		else
+			mpsc.set_users(iMaxUsers);
+
+		mpsc.set_channelname(u8(qrChannelName.pattern()));
+		mpsc.set_username(u8(qrUserName.pattern()));
+		mpsc.set_textmessagelength(iMaxTextMessageLength);
+		mpsc.set_imagemessagelength(iMaxImageMessageLength);
+		mpsc.set_allowhtml(bAllowHTML);
+
+		if (!Meta::mp.bLiveReconfigDisablePublistOptions) {
+			mpsc.set_registername(u8(qsRegName));
+
+			if (!qsRegPassword.isEmpty())
+				mpsc.set_registerpassword("*");
+
+			mpsc.set_registerurl(u8(qurlRegWeb.toString()));
+			mpsc.set_registerhostname(u8(qsRegHost));
+		}
+
+		mpsc.set_certrequired(bCertRequired);
+		mpsc.set_rememberchannel(bRememberChan);
+		mpsc.set_welcometext(u8(qsWelcomeText));
+
+		sendMessage(uSource, mpsc);
+		return;
+	}
+
+	if (!Meta::mp.bLiveReconfigDisableServerPasswordOption && msg.has_serverpassword()) {
+		setConf("serverpassword", u8(msg.serverpassword()));
+		setLiveConf("serverpassword", u8(msg.serverpassword()));
+	}
+
+	if (msg.has_defaultchannel()) {
+		setConf("defaultchannel", msg.defaultchannel());
+		setLiveConf("defaultchannel", QString::number(msg.defaultchannel()));
+	}
+
+	if (!Meta::mp.bLiveReconfigDisableBandwidthOption && msg.has_bandwidth()) {
+		if (msg.bandwidth() < 16000)
+			msg.set_bandwidth(16000);
+
+		setConf("bandwidth", msg.bandwidth());
+		setLiveConf("bandwidth", QString::number(msg.bandwidth()));
+	}
+
+	if (Meta::mp.bLiveReconfigDisableUsersOption && msg.has_users() && msg.users() > 0) {
+		setConf("users", msg.users());
+		setLiveConf("users", QString::number(msg.users()));
+	}
+
+	if (msg.has_channelname()) {
+		if (validateRegExp(u8(msg.channelname()))) {
+			setConf("channelname", u8(msg.channelname()));
+			setLiveConf("channelname", u8(msg.channelname()));
+		}
+	}
+
+	if (msg.has_username()) {
+		if (validateRegExp(u8(msg.username()))) {
+			setConf("username", u8(msg.username()));
+			setLiveConf("username", u8(msg.username()));
+		}
+	}
+
+	if (msg.has_textmessagelength()) {
+		setConf("textmessagelength", msg.textmessagelength());
+		setLiveConf("textmessagelength", QString::number(msg.textmessagelength()));
+	}
+
+	if (msg.has_imagemessagelength()) {
+		setConf("imagemessagelength", msg.imagemessagelength());
+		setLiveConf("imagemessagelength", QString::number(msg.imagemessagelength()));
+	}
+
+	if (msg.has_allowhtml()) {
+		setConf("allowhtml", msg.allowhtml());
+		setLiveConf("allowhtml", QVariant(msg.allowhtml()).toString());
+	}
+
+	if (!Meta::mp.bLiveReconfigDisablePublistOptions && msg.has_registername()) {
+		setConf("registerName", u8(msg.registername()));
+		setLiveConf("registername", u8(msg.registername()));
+	}
+
+	if (!Meta::mp.bLiveReconfigDisablePublistOptions && msg.has_registerpassword() && msg.registerpassword() != "*") {
+		setConf("registerPassword", u8(msg.registerpassword()));
+		setLiveConf("registerpassword", u8(msg.registerpassword()));
+	}
+
+	if (!Meta::mp.bLiveReconfigDisablePublistOptions && msg.has_registerurl()) {
+		QUrl url(u8(msg.registerurl()));
+		if (url.isValid()) {
+			setConf("registerUrl", u8(msg.registerurl()));
+			setLiveConf("registerurl", u8(msg.registerurl()));
+		}
+	}
+
+	if (!Meta::mp.bLiveReconfigDisablePublistOptions && msg.has_registerhostname()) {
+		setConf("registerHostname", u8(msg.registerhostname()));
+		setLiveConf("registerhostname", u8(msg.registerhostname()));
+	}
+
+	if (msg.has_certrequired()) {
+		setConf("certrequired", msg.certrequired());
+		setLiveConf("certrequired", QVariant(msg.certrequired()).toString());
+	}
+
+	if (msg.has_rememberchannel()) {
+		setConf("rememberchannel", msg.rememberchannel());
+		setLiveConf("rememberchannel", QVariant(msg.rememberchannel()).toString());
+	}
+
+	if (msg.has_welcometext()) {
+		setConf("welcometext", u8(msg.welcometext()));
+		setLiveConf("welcometext", u8(msg.welcometext()));
+	}
 }
 
 void Server::msgSuggestConfig(ServerUser *, MumbleProto::SuggestConfig &) {

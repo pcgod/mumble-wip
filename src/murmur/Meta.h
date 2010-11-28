@@ -58,6 +58,12 @@ struct MetaParams {
 	int iBanTimeframe;
 	int iBanTime;
 
+	bool bLiveReconfig;
+	bool bLiveReconfigDisableBandwidthOption;
+	bool bLiveReconfigDisableUsersOption;
+	bool bLiveReconfigDisableServerPasswordOption;
+	bool bLiveReconfigDisablePublistOptions;
+
 	QString qsDatabase;
 	QString qsDBDriver;
 	QString qsDBUserName;

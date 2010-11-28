@@ -55,6 +55,24 @@ message ServerConfig {
 	optional bool allow_html = 3;
 	optional uint32 message_length = 4;
 	optional uint32 image_message_length = 5;
+
+	optional bool query = 1000;
+	optional string serverpassword = 1001;
+	optional uint32 defaultchannel = 1002;
+	optional int32 bandwidth = 1003;
+	optional int32 users = 1004;
+	optional string channelname = 1005;
+	optional string username = 1006;
+	optional uint32 textmessagelength = 1007;
+	optional uint32 imagemessagelength = 1008;
+	optional bool allowhtml = 1009;
+	optional string registername = 1010;
+	optional string registerpassword = 1011;
+	optional string registerurl = 1012;
+	optional string registerhostname = 1013;
+	optional bool certrequired = 1014;
+	optional bool rememberchannel = 1015;
+	optional string welcometext = 1016;
 }
 
 message ServerSync {

@@ -73,6 +73,12 @@ MetaParams::MetaParams() {
 	iBanTimeframe = 120;
 	iBanTime = 300;
 
+	bLiveReconfig = false;
+	bLiveReconfigDisableBandwidthOption = false;
+	bLiveReconfigDisableUsersOption = false;
+	bLiveReconfigDisableServerPasswordOption = false;
+	bLiveReconfigDisablePublistOptions = false;
+
 #ifdef Q_OS_UNIX
 	uiUid = uiGid = 0;
 #endif
@@ -266,6 +272,12 @@ void MetaParams::read(QString fname) {
 	iBanTries = qsSettings->value("autobanAttempts", iBanTries).toInt();
 	iBanTimeframe = qsSettings->value("autobanTimeframe", iBanTimeframe).toInt();
 	iBanTime = qsSettings->value("autobanTime", iBanTime).toInt();
+
+	bLiveReconfig = qsSettings->value("livereconfig", bLiveReconfig).toBool();
+	bLiveReconfigDisableBandwidthOption = qsSettings->value("livereconfig_disablebandwidthoption", bLiveReconfigDisableBandwidthOption).toBool();
+	bLiveReconfigDisableUsersOption = qsSettings->value("livereconfig_disableusersoption", bLiveReconfigDisableUsersOption).toBool();
+	bLiveReconfigDisableServerPasswordOption = qsSettings->value("livereconfig_disableserverpasswordoption", bLiveReconfigDisableServerPasswordOption).toBool();
+	bLiveReconfigDisablePublistOptions = qsSettings->value("livereconfig_disablepublistoptions", bLiveReconfigDisablePublistOptions).toBool();
 
 	qvSuggestVersion = MumbleVersion::getRaw(qsSettings->value("suggestVersion").toString());
 	if (qvSuggestVersion.toUInt() == 0)
