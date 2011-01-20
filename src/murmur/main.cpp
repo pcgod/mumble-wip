@@ -40,6 +40,7 @@
 #include "Meta.h"
 #include "Version.h"
 #include "SSL.h"
+#include "SimpleRpc.h"
 
 #ifdef Q_OS_UNIX
 #include "UnixMurmur.h"
@@ -485,6 +486,8 @@ int main(int argc, char **argv) {
 #ifdef USE_ICE
 	IceStart();
 #endif
+
+	simplerpc::SimpleRpc::init();
 
 	meta->getOSInfo();
 
