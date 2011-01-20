@@ -857,6 +857,13 @@ void WASAPIOutput::run() {
 			goto cleanup;
 		}
 
+		if (!g.s.bPositionalAudio) {
+			pwfxe->Format.nChannels = 2;
+			pwfxe->Format.nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
+			pwfxe->Format.nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
+			pwfxe->dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+		}
+
 		hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, bufferDuration, 0, pwfx, NULL);
 		if (FAILED(hr)) {
 			qWarning("WASAPIOutput: Initialize failed: hr=0x%08lx", hr);
