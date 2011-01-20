@@ -54,46 +54,12 @@ static bool detach = true;
 #else
 static bool detach = false;
 #endif
-#ifdef Q_OS_WIN
-static bool bService = false;
-#endif
-
-static QString inifile;
-static QString supw;
-static bool wipeSsl = false;
-static int sunum = 1;
-#ifndef Q_OS_WIN
-static bool readPw = false;
-#endif
-
 
 Meta *meta = NULL;
 
 static LogEmitter le;
 
 static QStringList qlErrors;
-
-#ifdef Q_OS_WIN
-void ServiceMain(int argc, char **argv);
-void ReportServiceStatus(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwWaitHint);
-void ServiceInstall();
-
-class ServiceThread : public QThread {
-public:
-	ServiceThread(QObject *p) : QThread(p) {
-	}
-
-	void run() {
-		SERVICE_TABLE_ENTRY serviceTable[] = { 
-			{ TEXT("Murmur"), (LPSERVICE_MAIN_FUNCTION) ServiceMain }, 
-			{ NULL, NULL } 
-		}; 
- 
-		StartServiceCtrlDispatcher(serviceTable);
-	}
-};
-
-#endif
 
 static void murmurMessageOutput(QtMsgType type, const char *msg) {
 	char c;
@@ -153,9 +119,6 @@ static void murmurMessageOutput(QtMsgType type, const char *msg) {
 		}
 #else
 		::MessageBoxA(NULL, qPrintable(m), "Murmur", MB_OK | MB_ICONWARNING);
-//		if (bService) {
-			//ReportServiceStatus(SERVICE_STOPPED, ERROR_GEN_FAILURE, 0);
-		//}
 #endif
 		exit(0);
 	}
@@ -181,6 +144,7 @@ int main(int argc, char **argv) {
 
 	SetDllDirectory(L"");
 #endif
+	int res;
 
 #ifdef USE_ICE
 	IceParse(argc, argv);
@@ -228,7 +192,20 @@ int main(int argc, char **argv) {
 	argc = a.argc();
 	argv = a.argv();
 
+	QString inifile;
+	QString supw;
+	bool wipeSsl = false;
+	bool wipeLogs = false;
+	int sunum = 1;
+#ifndef Q_OS_WIN
+	bool readPw = false;
+#endif
+
 	qInstallMsgHandler(murmurMessageOutput);
+
+#ifdef Q_OS_WIN
+	Tray tray(NULL, &le);
+#endif
 
 	for (int i=1;i<argc;i++) {
 		bool bLast = false;
@@ -282,10 +259,7 @@ int main(int argc, char **argv) {
 #ifdef Q_OS_UNIX
 			       "  -readsupw [srv]  Reads password for server srv from standard input.\n"
 #endif
-#ifdef Q_OS_WIN
-				   "  -service         Starts the server as a service.\n"
-#endif
-				   "  -v               Add verbose output.\n"
+			       "  -v               Add verbose output.\n"
 			       "  -fg              Don't detach from console [Unix-like systems only].\n"
 			       "  -wipessl         Remove SSL certificates from database.\n"
 			       "  -wipelogs        Remove all log entries from database.\n"
@@ -299,13 +273,6 @@ int main(int argc, char **argv) {
 			unixhandler.finalcap();
 			LimitTest::testLimits(a);
 #endif
-#ifdef Q_OS_WIN
-		} else if (arg == "-service") {
-			bService = true;
-			detach = true;
-		} else if(arg == "-service-install") {
-			ServiceInstall();
-#endif
 		} else {
 			detach = false;
 			qFatal("Unknown argument %s", argv[i]);
@@ -316,18 +283,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-#ifdef Q_OS_WIN
-	QThread *service;
-	Tray *tray;
-	if (bService) {
-		service = new ServiceThread(&a);
-		service->start();
-	} else {
-		tray = new Tray(NULL, &le);
-	}
-#endif
-
-	int res;
 
 	Meta::mp.read(inifile);
 
@@ -499,12 +454,7 @@ int main(int argc, char **argv) {
 
 	meta->bootAll();
 
-#ifdef Q_OS_WIN
-//	if (bService)
-//		ReportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0);
-#endif
-
-	res = a.exec();
+	res=a.exec();
 
 	qWarning("Killing running servers");
 
@@ -531,87 +481,3 @@ int main(int argc, char **argv) {
 #endif
 	return res;
 }
-
-#ifdef Q_OS_WIN
-#pragma comment (lib, "advapi32")
-
-SERVICE_STATUS serviceStatus; 
-SERVICE_STATUS_HANDLE serviceStatusHandle; 
-
-void WINAPI ServiceControlHandler(DWORD dwCtrl) {
-
-}
-
-void ServiceMain(int argc, char **argv) {
-    serviceStatusHandle = RegisterServiceCtrlHandler(L"Murmur", ServiceControlHandler);
-
-    serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS; 
-    serviceStatus.dwServiceSpecificExitCode = 0;    
-
-	if (serviceStatusHandle) {
-		//ReportServiceStatus(SERVICE_START_PENDING, NO_ERROR, 86400000);
-		ReportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0);
-		//handleArguments(argc, argv);
-		//initialize();
-    } 
-}
-
-void ReportServiceStatus(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwWaitHint) {
-    static DWORD dwCheckPoint = 1;
-
-    serviceStatus.dwCurrentState = dwCurrentState;
-    serviceStatus.dwWin32ExitCode = dwWin32ExitCode;
-    serviceStatus.dwWaitHint = dwWaitHint;
-
-    if (dwCurrentState == SERVICE_START_PENDING)
-        serviceStatus.dwControlsAccepted = 0;
-    else serviceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
-
-    if ((dwCurrentState == SERVICE_RUNNING) ||
-           (dwCurrentState == SERVICE_STOPPED))
-        serviceStatus.dwCheckPoint = 0;
-    else serviceStatus.dwCheckPoint = dwCheckPoint++;
-
-    SetServiceStatus(serviceStatusHandle, &serviceStatus);
-}
-
-void ServiceInstall() {
-	SC_HANDLE schSCManager;
-	SC_HANDLE schService;
-
-	schSCManager = OpenSCManager(
-		NULL,                    // local computer
-		NULL,                    // ServicesActive database 
-		SC_MANAGER_ALL_ACCESS);  // full access rights 
- 
-	if (NULL == schSCManager) {
-		qFatal("OpenSCManager failed (%d)\n", GetLastError());
-		return;
-	}
-	QString appPath = QCoreApplication::applicationFilePath();
-	appPath.prepend("\"");
-	appPath.append("\" -service");
-
-	schService = CreateService( 
-		schSCManager,              // SCM database 
-		L"Murmur",                   // name of service 
-		L"Murmur",                   // service name to display 
-		SERVICE_ALL_ACCESS,        // desired access 
-		SERVICE_WIN32_OWN_PROCESS, // service type 
-		SERVICE_DEMAND_START,      // start type 
-		SERVICE_ERROR_NORMAL,      // error control type 
-		appPath.toStdWString().c_str(),                    // path to service's binary 
-		NULL,                      // no load ordering group 
-		NULL,                      // no tag identifier 
-		L"Tcpip\0\0",         // dependencies 
-		NULL,                      // LocalSystem account 
-		NULL);                     // no password 
- 
-	if (schService == NULL) {
-		qFatal("CreateService failed (%d)\n", GetLastError()); 
-	} else {
-		qFatal("Service installed successfully\n");
-	}
-}
-
-#endif
