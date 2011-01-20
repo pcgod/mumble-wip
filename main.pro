@@ -15,7 +15,7 @@ CONFIG *= ordered debug_and_release
     SUBDIRS *= celt-0.7.0-build celt-0.11.0-build
   }
 
-  SUBDIRS *= src/mumble
+  SUBDIRS *= src/mumble mumble_exe
 
   !CONFIG(no-plugins) {
     SUBDIRS *= plugins

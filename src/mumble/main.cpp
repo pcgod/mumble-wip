@@ -122,12 +122,25 @@ bool QAppMumble::winEventFilter(MSG *msg, long *result) {
 }
 #endif
 
+#if defined(Q_OS_WIN) && !defined(QT_NO_DEBUG)
+extern "C" _declspec(dllexport) int main(int argc, char **argv) {
+#else
 int main(int argc, char **argv) {
+#endif
 	int res = 0;
 
 	QT_REQUIRE_VERSION(argc, argv, "4.4.0");
 
 #if defined(Q_OS_WIN)
+	wchar_t path_env[1024];
+	DWORD count = sizeof(path_env) / sizeof(path_env[0]);
+	DWORD resx = GetEnvironmentVariableW(L"MUMBLE_PATH", path_env, count);
+	if (resx == 0 || resx >= count) {
+		return -3;
+	}
+	QString appDir = QString::fromWCharArray(path_env);
+	QApplication::addLibraryPath(QString::fromLatin1("%1\\%2").arg(appDir).arg(QLatin1String("QtPlugins")));
+
 	SetDllDirectory(L"");
 #else
 #ifndef Q_OS_MAC
@@ -481,3 +494,18 @@ int main(int argc, char **argv) {
 #endif
 	return res;
 }
+
+#ifdef QT_NO_DEBUG
+extern void qWinMain(HINSTANCE, HINSTANCE, LPSTR, int, int &, QVector<char *> &);
+
+extern "C" _declspec(dllexport) int MumbleMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR /* cmdArg */, int cmdShow) {
+    QByteArray cmdParam = QString::fromWCharArray(GetCommandLine()).toLocal8Bit();
+
+    int argc = 0;
+    QVector<char *> argv(8);
+    qWinMain(instance, prevInstance, cmdParam.data(), cmdShow, argc, argv);
+
+    int result = main(argc, argv.data());
+    return result;
+}
+#endif
