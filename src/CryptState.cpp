@@ -189,42 +189,48 @@ bool CryptState::decrypt(const unsigned char *source, unsigned char *dst, unsign
 typedef quint64 subblock;
 
 #define SWAPPED(x) SWAP64(x)
-
 #else
 #define BLOCKSIZE 4
 #define SHIFTBITS 31
 typedef quint32 subblock;
+#if defined(Q_OS_WIN)
+#define SWAPPED(x) _byteswap_ulong(x)
+#else
 #define SWAPPED(x) htonl(x)
+#endif
 #endif
 
 typedef subblock keyblock[BLOCKSIZE];
 
 #define HIGHBIT (1<<SHIFTBITS);
 
+namespace {
 
-static void inline XOR(subblock *dst, const subblock *a, const subblock *b) {
+void inline XOR(subblock *dst, const subblock *a, const subblock *b) {
 	for (int i=0;i<BLOCKSIZE;i++) {
 		dst[i] = a[i] ^ b[i];
 	}
 }
 
-static void inline S2(subblock *block) {
+void inline S2(subblock *block) {
 	subblock carry = SWAPPED(block[0]) >> SHIFTBITS;
 	for (int i=0;i<BLOCKSIZE-1;i++)
 		block[i] = SWAPPED((SWAPPED(block[i]) << 1) | (SWAPPED(block[i+1]) >> SHIFTBITS));
 	block[BLOCKSIZE-1] = SWAPPED((SWAPPED(block[BLOCKSIZE-1]) << 1) ^(carry * 0x87));
 }
 
-static void inline S3(subblock *block) {
+void inline S3(subblock *block) {
 	subblock carry = SWAPPED(block[0]) >> SHIFTBITS;
 	for (int i=0;i<BLOCKSIZE-1;i++)
 		block[i] ^= SWAPPED((SWAPPED(block[i]) << 1) | (SWAPPED(block[i+1]) >> SHIFTBITS));
 	block[BLOCKSIZE-1] ^= SWAPPED((SWAPPED(block[BLOCKSIZE-1]) << 1) ^(carry * 0x87));
 }
 
-static void inline ZERO(keyblock &block) {
+void inline ZERO(keyblock &block) {
 	for (int i=0;i<BLOCKSIZE;i++)
 		block[i]=0;
+}
+
 }
 
 #define AESencrypt(src,dst,key) AES_encrypt(reinterpret_cast<const unsigned char *>(src),reinterpret_cast<unsigned char *>(dst), key);
