@@ -122,63 +122,12 @@ BOOL SetHeapOptions() {
 	return fRet;
 }
 
-FARPROC WINAPI delayHook(unsigned dliNotify, PDelayLoadInfo pdli) {
-	if (dliNotify != dliNotePreLoadLibrary)
-		return 0;
-
-
-	size_t length = strlen(pdli->szDll);
-	if (length < 5)
-		return 0;
-
-	size_t buflen = length + 10;
-
-	STACKVAR(char, filename, buflen);
-	strcpy_s(filename, buflen, pdli->szDll);
-
-	size_t offset = 0;
-
-	if (_stricmp(filename + length - 4, ".dll") == 0)
-		offset = length-4;
-	else
-		offset = length;
-
-	HMODULE hmod = 0;
-
-	// SSE?
-	if (cpuinfo[3] & 0x02000000) {
-		// SSE2?
-		if (cpuinfo[3] & 0x04000000) {
-			// And SSE3?
-			if (cpuinfo[2] & 0x00000001) {
-				strcpy_s(filename + offset, 10, ".sse3.dll");
-				hmod = LoadLibraryA(filename);
-				if (hmod)
-					return (FARPROC) hmod;
-			}
-
-			strcpy_s(filename + offset, 10, ".sse2.dll");
-			hmod = LoadLibraryA(filename);
-			if (hmod)
-				return (FARPROC) hmod;
-		}
-
-		strcpy_s(filename + offset, 10, ".sse.dll");
-		hmod = LoadLibraryA(filename);
-		if (hmod)
-			return (FARPROC) hmod;
-	}
-
-	return 0;
-}
-
 void os_init() {
-	__pfnDliNotifyHook2 = delayHook;
 	__cpuid(cpuinfo, 1);
 
-#define MMXSSE 0x02800000
-	if ((cpuinfo[3] & MMXSSE) != MMXSSE) {
-		::MessageBoxA(NULL, "Mumble requires a SSE capable processor (Pentium 3 / Ahtlon-XP)", "Mumble", MB_OK | MB_ICONERROR);
+#define SSE2_BIT (26)
+	if (!(cpuinfo[3] & (1 << SSE2_BIT))) {
+		::MessageBoxA(NULL, "This version of Mumble requires a SSE2 capable processor (Pentium 4 / Athlon 64)", "Mumble", MB_OK | MB_ICONERROR);
 		exit(0);
 	}
 
