@@ -1304,8 +1304,9 @@ void Server::checkTimeout() {
 
 	qrwlUsers.lockForRead();
 	foreach(ServerUser *u, qhUsers) {
-		if (u->activityTime() > (iTimeout * 1000)) {
-			log(u, "Timeout");
+		qint32 activity = u->activityTime();
+		if (activity > (iTimeout * 1000)) {
+			log(u, QString::fromLatin1("Timeout - activity: %1 timeout: %2").arg(activity).arg(iTimeout));
 			qlClose.append(u);
 		}
 	}

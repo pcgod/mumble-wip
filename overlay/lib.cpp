@@ -129,7 +129,7 @@ Mutex::~Mutex() {
 }
 
 void __cdecl ods(const char *format, ...) {
-#ifndef DEBUG
+#if 0
 	if (!bDebug)
 		return;
 #endif

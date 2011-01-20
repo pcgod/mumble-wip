@@ -68,7 +68,7 @@ dbus {
 ice {
 	slice.target = Murmur.cpp
 	win32 {
-		slice.commands = slice2cpp --checksum -I\"$$ICE_PATH/slice\" Murmur.ice
+		slice.commands = $$ICE_PATH/bin/vc100/slice2cpp --checksum -I\"$$ICE_PATH/slice\" Murmur.ice
 	} else {
 		slice.commands = slice2cpp --checksum -I/usr/local/share/Ice -I/usr/share/Ice/slice -I/usr/share/slice -I/usr/share/Ice-3.4.1/slice/ -I/usr/share/Ice-3.3.1/slice/ Murmur.ice
 	}

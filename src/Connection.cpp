@@ -183,6 +183,11 @@ void Connection::messageToNetwork(const ::google::protobuf::Message &msg, unsign
 	qToBigEndian<quint32>(len, & uc[2]);
 
 	msg.SerializeToArray(uc + 6, len);
+
+	if (msgType != 3) {
+		printf("<<<< %d:\n", msgType);
+		msg.PrintDebugString();
+	}
 }
 
 void Connection::sendMessage(const ::google::protobuf::Message &msg, unsigned int msgType, QByteArray &cache) {

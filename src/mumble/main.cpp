@@ -55,6 +55,13 @@
 #include "FileEngine.h"
 #include "SocketRPC.h"
 
+#if QT_STATICPLUGIN
+Q_IMPORT_PLUGIN(qtaccessiblewidgets)
+Q_IMPORT_PLUGIN(qico)
+Q_IMPORT_PLUGIN(qsvg)
+Q_IMPORT_PLUGIN(qsvgicon)
+#endif
+
 #ifdef BOOST_NO_EXCEPTIONS
 namespace boost {
 	void throw_exception(std::exception const &) {
@@ -129,7 +136,7 @@ int main(int argc, char **argv) {
 #endif
 	int res = 0;
 
-	QT_REQUIRE_VERSION(argc, argv, "4.4.0");
+	QT_REQUIRE_VERSION(argc, argv, "4.5.0");
 
 #if defined(Q_OS_WIN)
 	wchar_t path_env[1024];

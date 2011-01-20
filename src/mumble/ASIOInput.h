@@ -32,7 +32,6 @@
 #define _ASIOINPUT_H
 
 #include <windows.h>
-#include <asiodrvr.h>
 #include "AudioInput.h"
 #include "ConfigDialog.h"
 #include "ui_ASIOInput.h"
