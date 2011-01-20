@@ -81,7 +81,6 @@ extern "C" {
 #include <math.h>
 #endif
 #if defined (Q_OS_WIN) && (defined (Q_CC_INTEL) || defined (Q_CC_MSVC))
-#define lroundf(x) ( static_cast<int>( (x) + ((x) >= 0 ? 0.5 : -0.5) ) )
 #define snprintf ::_snprintf
 #define STACKVAR(type, varname, count) type *varname=reinterpret_cast<type *>(_alloca(sizeof(type) * (count)))
 #else
