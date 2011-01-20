@@ -606,12 +606,14 @@ WASAPIOutput::~WASAPIOutput() {
 	wait();
 }
 
+#define JUMP_IF_FAILED(hr, label) if (FAILED(hr)) { goto label; }
+
 void WASAPIOutput::setVolumes(IMMDevice *pDevice, bool talking) {
 	HRESULT hr;
 
 	if (! talking) {
 		QMap<ISimpleAudioVolume *, VolumePair>::const_iterator i;
-		for (i=qmVolumes.constBegin(); i != qmVolumes.constEnd(); ++i) {
+		for (i = qmVolumes.constBegin(); i != qmVolumes.constEnd(); ++i) {
 			float fVolume = 1.0f;
 			hr = i.key()->GetMasterVolume(&fVolume);
 			if (qFuzzyCompare(i.value().second, fVolume))
@@ -622,79 +624,114 @@ void WASAPIOutput::setVolumes(IMMDevice *pDevice, bool talking) {
 		return;
 	}
 
-	IAudioSessionManager2 *pAudioSessionManager = NULL;
-	int max = 0;
-	DWORD dwMumble = GetCurrentProcessId();
-
 	qmVolumes.clear();
 	if (qFuzzyCompare(g.s.fOtherVolume, 1.0f))
 		return;
 
 	// FIXME: Try to keep the session object around when returning volume.
 
-	if (SUCCEEDED(hr = pDevice->Activate(bIsWin7 ? __uuidof(IAudioSessionManager2) : __uuidof(IAudioSessionManager), CLSCTX_ALL, NULL, (void **) &pAudioSessionManager))) {
-		IAudioSessionEnumerator *pEnumerator = NULL;
-		IAudioSessionQuery *pMysticQuery = NULL;
-		if (! bIsWin7) {
-			if (SUCCEEDED(hr = pAudioSessionManager->QueryInterface(__uuidof(IAudioSessionQuery), (void **) &pMysticQuery))) {
-				hr = pMysticQuery->GetQueryInterface(&pEnumerator);
-			}
-		} else {
-			hr = pAudioSessionManager->GetSessionEnumerator(&pEnumerator);
-		}
+	IAudioSessionManager2 *pAudioSessionManager = NULL;
+	IAudioSessionEnumerator *pEnumerator = NULL;
+	IAudioSessionQuery *pMysticQuery = NULL;
+	QSet<QUuid> seen;
 
-		QSet<QUuid> seen;
+	hr = pDevice->Activate(bIsWin7 ? __uuidof(IAudioSessionManager2) : __uuidof(IAudioSessionManager), CLSCTX_ALL, NULL, (void **)&pAudioSessionManager);
+	JUMP_IF_FAILED(hr, exit);
 
-		if (SUCCEEDED(hr)) {
-			if (SUCCEEDED(hr = pEnumerator->GetCount(&max))) {
-				for (int i=0;i<max;++i) {
-					IAudioSessionControl *pControl = NULL;
-					if (SUCCEEDED(hr = pEnumerator->GetSession(i, &pControl))) {
-						IAudioSessionControl2 *pControl2 = NULL;
-						if (SUCCEEDED(hr = pControl->QueryInterface(bIsWin7 ? __uuidof(IAudioSessionControl2) : __uuidof(IVistaAudioSessionControl2), (void **) &pControl2)))  {
-							DWORD pid;
-							if (SUCCEEDED(hr = pControl2->GetProcessId(&pid)) && (pid != dwMumble)) {
-								AudioSessionState ass;
-								if (SUCCEEDED(hr = pControl2->GetState(&ass)) && (ass != AudioSessionStateExpired)) {
-									GUID group;
-									if (SUCCEEDED(hr = pControl2->GetGroupingParam(&group))) {
-										QUuid quuid(group);
-										if (! seen.contains(quuid)) {
-											seen.insert(quuid);
-											ISimpleAudioVolume *pVolume = NULL;
-											if (SUCCEEDED(hr = pControl2->QueryInterface(__uuidof(ISimpleAudioVolume), (void **) &pVolume))) {
-												BOOL bMute = TRUE;
-												bool keep = false;
-												if (SUCCEEDED(hr = pVolume->GetMute(&bMute)) && ! bMute) {
-													float fVolume = 1.0f;
-													if (SUCCEEDED(hr = pVolume->GetMasterVolume(&fVolume)) && ! qFuzzyCompare(fVolume,0.0f)) {
-														float fSetVolume = fVolume * g.s.fOtherVolume;
-														if (SUCCEEDED(hr = pVolume->SetMasterVolume(fSetVolume, NULL))) {
-															hr = pVolume->GetMasterVolume(&fSetVolume);
-															qmVolumes.insert(pVolume, VolumePair(fVolume,fSetVolume));
-															keep = true;
-														}
-													}
-												}
-												if (! keep)
-													pVolume->Release();
-											}
-										}
-									}
-								}
-							}
-							pControl2->Release();
-						}
-						pControl->Release();
-					}
-				}
-			}
-			pEnumerator->Release();
-		}
-		if (pMysticQuery)
-			pMysticQuery->Release();
-		pAudioSessionManager->Release();
+	if (! bIsWin7) {
+		hr = pAudioSessionManager->QueryInterface(__uuidof(IAudioSessionQuery), (void **)&pMysticQuery);
+		JUMP_IF_FAILED(hr, exit);
+
+		hr = pMysticQuery->GetQueryInterface(&pEnumerator);
+	} else {
+		hr = pAudioSessionManager->GetSessionEnumerator(&pEnumerator);
 	}
+	JUMP_IF_FAILED(hr, exit);
+
+	int max = 0;
+	DWORD dwMumble = GetCurrentProcessId();
+
+	hr = pEnumerator->GetCount(&max);
+	JUMP_IF_FAILED(hr, exit);
+
+	for (int i = 0; i < max; ++i) {
+		IAudioSessionControl *pControl = NULL;
+		IAudioSessionControl2 *pControl2 = NULL;
+		ISimpleAudioVolume *pVolume = NULL;
+		
+		hr = pEnumerator->GetSession(i, &pControl);
+		JUMP_IF_FAILED(hr, next);
+
+		hr = pControl->QueryInterface(bIsWin7 ? __uuidof(IAudioSessionControl2) : __uuidof(IVistaAudioSessionControl2), (void **)&pControl2);
+		JUMP_IF_FAILED(hr, next);
+
+		DWORD pid;
+		hr = pControl2->GetProcessId(&pid);
+		JUMP_IF_FAILED(hr, next);
+
+		if (pid == dwMumble)
+			goto next;
+
+		AudioSessionState ass;
+		hr = pControl2->GetState(&ass);
+		JUMP_IF_FAILED(hr, next);
+
+		if (ass == AudioSessionStateExpired)
+			goto next;
+
+		GUID group;
+		hr = pControl2->GetGroupingParam(&group);
+		JUMP_IF_FAILED(hr, next);
+
+		{
+			QUuid quuid(group);
+			if (seen.contains(quuid))
+				goto next;
+
+			seen.insert(quuid);
+		}
+
+		hr = pControl2->QueryInterface(__uuidof(ISimpleAudioVolume), (void **)&pVolume);
+		JUMP_IF_FAILED(hr, next);
+
+		BOOL bMute = TRUE;
+		bool keep = false;
+		hr = pVolume->GetMute(&bMute);
+		JUMP_IF_FAILED(hr, next);
+
+		if (! bMute) {
+			float fVolume = 1.0f;
+			hr = pVolume->GetMasterVolume(&fVolume);
+			if (! qFuzzyCompare(fVolume, 0.0f)) {
+				float fSetVolume = fVolume * g.s.fOtherVolume;
+				hr = pVolume->SetMasterVolume(fSetVolume, NULL);
+				JUMP_IF_FAILED(hr, next);
+
+				hr = pVolume->GetMasterVolume(&fSetVolume);
+				qmVolumes.insert(pVolume, VolumePair(fVolume, fSetVolume));
+				keep = true;
+			}
+		}
+		if (! keep)
+			pVolume->Release();
+		pVolume = NULL;
+
+next:
+		if (pVolume)
+			pVolume->Release();
+		if (pControl2)
+			pControl2->Release();
+		if (pControl)
+			pControl->Release();
+	}
+
+exit:
+	if (pEnumerator)
+		pEnumerator->Release();
+	if (pMysticQuery)
+		pMysticQuery->Release();
+	if (pAudioSessionManager)
+		pAudioSessionManager->Release();
 }
 
 void WASAPIOutput::run() {
@@ -740,10 +777,8 @@ void WASAPIOutput::run() {
 	}
 
 	if (! g.s.qsWASAPIOutput.isEmpty()) {
-		STACKVAR(wchar_t, devname, g.s.qsWASAPIOutput.length() + 1);
-		int len = g.s.qsWASAPIOutput.toWCharArray(devname);
-		devname[len] = 0;
-		hr = pEnumerator->GetDevice(devname, &pDevice);
+		std::wstring devname = g.s.qsWASAPIOutput.toStdWString();
+		hr = pEnumerator->GetDevice(devname.c_str(), &pDevice);
 		if (FAILED(hr)) {
 			qWarning("WASAPIOutput: Failed to open selected input device (hr=0x%08lx), falling back to default", hr);
 		}
