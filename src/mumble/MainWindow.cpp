@@ -276,7 +276,6 @@ void MainWindow::createActions() {
 
 void MainWindow::setupGui()  {
 	setWindowTitle(tr("Mumble -- %1").arg(QLatin1String(MUMBLE_RELEASE)));
-	setCentralWidget(qtvUsers);
 
 #ifdef Q_OS_MAC
 	QMenu *qmWindow = new QMenu(tr("&Window"), this);
@@ -314,17 +313,6 @@ void MainWindow::setupGui()  {
 	connect(gsUnlink, SIGNAL(down(QVariant)), qaAudioUnlink, SLOT(trigger()));
 	connect(gsMinimal, SIGNAL(down(QVariant)), qaConfigMinimal, SLOT(trigger()));
 
-	dtbLogDockTitle = new DockTitleBar();
-	qdwLog->setTitleBarWidget(dtbLogDockTitle);
-
-	foreach(QWidget *w, qdwLog->findChildren<QWidget *>()) {
-		w->installEventFilter(dtbLogDockTitle);
-		w->setMouseTracking(true);
-	}
-
-	dtbChatDockTitle = new DockTitleBar();
-	qdwChat->setTitleBarWidget(dtbChatDockTitle);
-	qdwChat->installEventFilter(dtbChatDockTitle);
 	qteChat->setDefaultText(tr("<center>Not connected</center>"), true);
 	qteChat->setEnabled(false);
 
@@ -357,6 +345,9 @@ void MainWindow::setupGui()  {
 		restoreState(g.s.qbaMinimalViewState);
 	else if (! g.s.bMinimalView && ! g.s.qbaMainWindowState.isNull())
 		restoreState(g.s.qbaMainWindowState);
+
+	if (! g.s.bMinimalView && ! g.s.qbaSplitterState.isNull())
+		splitter->restoreState(g.s.qbaSplitterState);
 	g.s.wlWindowLayout = wlTmp;
 
 	setupView(false);
@@ -380,7 +371,6 @@ void MainWindow::setupGui()  {
 }
 
 MainWindow::~MainWindow() {
-	delete qdwLog->titleBarWidget();
 	delete pmModel;
 	delete qtvUsers;
 	delete Channel::get(0);
@@ -428,7 +418,7 @@ void MainWindow::closeEvent(QCloseEvent *e) {
 	} else {
 		g.s.qbaMainWindowGeometry = saveGeometry();
 		g.s.qbaMainWindowState = saveState();
-		g.s.qbaHeaderState = qtvUsers->header()->saveState();
+		g.s.qbaSplitterState = splitter->saveState();
 	}
 	g.bQuit = true;
 
@@ -769,33 +759,33 @@ void MainWindow::setupView(bool toggle_minimize) {
 
 	// Update window layout
 	Settings::WindowLayout wlTmp = g.s.wlWindowLayout;
-	switch (wlTmp) {
-		case Settings::LayoutClassic:
-			removeDockWidget(qdwLog);
-			addDockWidget(Qt::LeftDockWidgetArea, qdwLog);
-			qdwLog->show();
-			splitDockWidget(qdwLog, qdwChat, Qt::Vertical);
-			qdwChat->show();
-			break;
-		case Settings::LayoutStacked:
-			removeDockWidget(qdwLog);
-			addDockWidget(Qt::BottomDockWidgetArea, qdwLog);
-			qdwLog->show();
-			splitDockWidget(qdwLog, qdwChat, Qt::Vertical);
-			qdwChat->show();
-			break;
-		case Settings::LayoutHybrid:
-			removeDockWidget(qdwLog);
-			removeDockWidget(qdwChat);
-			addDockWidget(Qt::LeftDockWidgetArea, qdwLog);
-			qdwLog->show();
-			addDockWidget(Qt::BottomDockWidgetArea, qdwChat);
-			qdwChat->show();
-			break;
-		default:
-			wlTmp = Settings::LayoutCustom;
-			break;
-	}
+	//switch (wlTmp) {
+	//	case Settings::LayoutClassic:
+	//		removeDockWidget(qdwLog);
+	//		addDockWidget(Qt::LeftDockWidgetArea, qdwLog);
+	//		qdwLog->show();
+	//		splitDockWidget(qdwLog, qdwChat, Qt::Vertical);
+	//		qdwChat->show();
+	//		break;
+	//	case Settings::LayoutStacked:
+	//		removeDockWidget(qdwLog);
+	//		addDockWidget(Qt::BottomDockWidgetArea, qdwLog);
+	//		qdwLog->show();
+	//		splitDockWidget(qdwLog, qdwChat, Qt::Vertical);
+	//		qdwChat->show();
+	//		break;
+	//	case Settings::LayoutHybrid:
+	//		removeDockWidget(qdwLog);
+	//		removeDockWidget(qdwChat);
+	//		addDockWidget(Qt::LeftDockWidgetArea, qdwLog);
+	//		qdwLog->show();
+	//		addDockWidget(Qt::BottomDockWidgetArea, qdwChat);
+	//		qdwChat->show();
+	//		break;
+	//	default:
+	//		wlTmp = Settings::LayoutCustom;
+	//		break;
+	//}
 	qteChat->updateGeometry();
 	g.s.wlWindowLayout = wlTmp;
 
@@ -805,7 +795,7 @@ void MainWindow::setupView(bool toggle_minimize) {
 		if (! showit) {
 			g.s.qbaMainWindowGeometry = saveGeometry();
 			g.s.qbaMainWindowState = saveState();
-			g.s.qbaHeaderState = qtvUsers->header()->saveState();
+			g.s.qbaSplitterState = splitter->saveState();
 		} else {
 			g.s.qbaMinimalViewGeometry = saveGeometry();
 			g.s.qbaMinimalViewState = saveState();
@@ -849,8 +839,8 @@ void MainWindow::setupView(bool toggle_minimize) {
 	}
 
 	if (! showit) {
-		qdwLog->setVisible(showit);
-		qdwChat->setVisible(showit);
+		qteLog->setVisible(showit);
+		qteChat->setVisible(showit);
 		qtIconToolbar->setVisible(showit);
 	}
 	menuBar()->setVisible(showit);
@@ -866,6 +856,8 @@ void MainWindow::setupView(bool toggle_minimize) {
 				restoreGeometry(g.s.qbaMainWindowGeometry);
 			if (! g.s.qbaMainWindowState.isNull())
 				restoreState(g.s.qbaMainWindowState);
+			if (! g.s.qbaSplitterState.isNull())
+				splitter->restoreState(g.s.qbaSplitterState);
 		}
 	} else {
 		QRect newgeom = frameGeometry();
@@ -2608,14 +2600,6 @@ void MainWindow::on_qteLog_highlighted(const QUrl &url) {
 		QToolTip::hideText();
 	else
 		QToolTip::showText(QCursor::pos(), url.toString(), qteLog, QRect());
-}
-
-void MainWindow::on_qdwChat_dockLocationChanged(Qt::DockWidgetArea) {
-	g.s.wlWindowLayout = Settings::LayoutCustom;
-}
-
-void MainWindow::on_qdwLog_dockLocationChanged(Qt::DockWidgetArea) {
-	g.s.wlWindowLayout = Settings::LayoutCustom;
 }
 
 void MainWindow::context_triggered() {

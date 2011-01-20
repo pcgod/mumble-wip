@@ -617,7 +617,6 @@ void Settings::load(QSettings* settings_ptr) {
 	SAVELOAD(qbaConfigGeometry, "ui/ConfigGeometry");
 	LOADENUM(wlWindowLayout, "ui/WindowLayout");
 	SAVELOAD(qbaSplitterState, "ui/splitter");
-	SAVELOAD(qbaHeaderState, "ui/header");
 	SAVELOAD(qsUsername, "ui/username");
 	SAVELOAD(qsLastServer, "ui/server");
 	LOADENUM(ssFilter, "ui/serverfilter");
@@ -875,7 +874,6 @@ void Settings::save() {
 	SAVELOAD(qbaConfigGeometry, "ui/ConfigGeometry");
 	SAVELOAD(wlWindowLayout, "ui/WindowLayout");
 	SAVELOAD(qbaSplitterState, "ui/splitter");
-	SAVELOAD(qbaHeaderState, "ui/header");
 	SAVELOAD(qsUsername, "ui/username");
 	SAVELOAD(qsLastServer, "ui/server");
 	SAVELOAD(ssFilter, "ui/serverfilter");

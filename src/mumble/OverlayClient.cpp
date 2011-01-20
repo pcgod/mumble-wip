@@ -211,7 +211,6 @@ void OverlayClient::showGui() {
 		} else {
 			g.s.qbaMainWindowGeometry = g.mw->saveGeometry();
 			g.s.qbaMainWindowState = g.mw->saveState();
-			g.s.qbaHeaderState = g.mw->qtvUsers->header()->saveState();
 		}
 	}
 

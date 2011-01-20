@@ -489,7 +489,7 @@ void Log::log(MsgType mt, const QString &console, const QString &terse, bool own
 		return;
 
 	// Message notification with balloon tooltips
-	if ((flags & Settings::LogBalloon) && !(g.mw->isActiveWindow() && g.mw->qdwLog->isVisible()))  {
+	if ((flags & Settings::LogBalloon) && (!g.mw->isActiveWindow() && g.mw->qteLog->isVisible()))  {
 		QString qsIcon;
 		switch (mt) {
 			case DebugInfo:
