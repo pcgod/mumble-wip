@@ -302,24 +302,24 @@ void OverlayUserGroup::updateUsers() {
 		qgeiHandle = NULL;
 	}
 
-	ClientUser *self = ClientUser::get(g.uiSession);
+	ClientUserPtr self = ClientUser::get(g.uiSession);
 	if (self) {
-		QList<ClientUser *> showusers;
+		QList< ClientUserPtr > showusers;
 		Channel *home = ClientUser::get(g.uiSession)->cChannel;
 
 		switch (os->osShow) {
 			case OverlaySettings::LinkedChannels:
 				foreach(Channel *c, home->allLinks())
 					foreach(User *p, c->qlUsers)
-						showusers << static_cast<ClientUser *>(p);
-				foreach(ClientUser *cu, ClientUser::getTalking())
+					showusers << ClientUser::get(static_cast<ClientUser *>(p)->uiSession);
+				foreach(ClientUserPtr cu, ClientUser::getTalking())
 					if (! showusers.contains(cu))
 						showusers << cu;
 				break;
 			case OverlaySettings::HomeChannel:
 				foreach(User *p, home->qlUsers)
-					showusers << static_cast<ClientUser *>(p);
-				foreach(ClientUser *cu, ClientUser::getTalking())
+					showusers << ClientUser::get(static_cast<ClientUser *>(p)->uiSession);
+				foreach(ClientUserPtr cu, ClientUser::getTalking())
 					if (! showusers.contains(cu))
 						showusers << cu;
 				break;
@@ -337,11 +337,11 @@ void OverlayUserGroup::updateUsers() {
 
 		ClientUser::sortUsersOverlay(showusers);
 
-		foreach(ClientUser *cu, showusers) {
+		foreach(ClientUserPtr cu, showusers) {
 			OverlayUser *ou = qmUsers.value(cu);
 			if (! ou) {
 				ou = new OverlayUser(cu, uiHeight, os);
-				connect(cu, SIGNAL(destroyed(QObject *)), this, SLOT(userDestroyed(QObject *)));
+				connect(cu.get(), SIGNAL(destroyed(QObject *)), this, SLOT(userDestroyed(QObject *)));
 				qmUsers.insert(cu, ou);
 				ou->hide();
 			} else {
@@ -392,7 +392,7 @@ void OverlayUserGroup::updateUsers() {
 	setPos(basex, basey);
 }
 
-void OverlayUserGroup::userDestroyed(QObject *obj) {
+void OverlayUserGroup::userDestroyed(boost::shared_ptr<ClientUser> obj) {
 	OverlayUser *ou = qmUsers.take(obj);
 	delete ou;
 }

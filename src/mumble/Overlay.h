@@ -81,7 +81,7 @@ class OverlayUser : public OverlayGroup {
 		OverlaySettings *os;
 
 		unsigned int uiSize;
-		ClientUser *cuUser;
+		boost::shared_ptr<ClientUser> cuUser;
 		Settings::TalkState tsColor;
 
 		QString qsName;
@@ -91,7 +91,7 @@ class OverlayUser : public OverlayGroup {
 		void setup();
 
 	public:
-		OverlayUser(ClientUser *cu, unsigned int uiSize, OverlaySettings *osptr);
+		OverlayUser(boost::shared_ptr<ClientUser> cu, unsigned int uiSize, OverlaySettings *osptr);
 		OverlayUser(Settings::TalkState ts, unsigned int uiSize, OverlaySettings *osptr);
 		void updateUser();
 		void updateLayout();
@@ -110,7 +110,7 @@ class OverlayUserGroup : public QObject, public OverlayGroup {
 	protected:
 		OverlaySettings *os;
 
-		QMap<QObject *, OverlayUser *> qmUsers;
+		QMap<boost::shared_ptr<ClientUser>, OverlayUser *> qmUsers;
 		QList<OverlayUser *> qlExampleUsers;
 
 		QGraphicsEllipseItem *qgeiHandle;
@@ -119,7 +119,7 @@ class OverlayUserGroup : public QObject, public OverlayGroup {
 		void wheelEvent(QGraphicsSceneWheelEvent *);
 		bool sceneEventFilter(QGraphicsItem *, QEvent *);
 	protected slots:
-		void userDestroyed(QObject *);
+		void userDestroyed(boost::shared_ptr<ClientUser>);
 		void moveUsers();
 	public:
 		bool bShowExamples;
@@ -386,8 +386,8 @@ class Overlay : public QObject {
 		Overlay();
 		~Overlay();
 		bool isActive() const;
-		void verifyTexture(ClientUser *cp, bool allowupdate = true);
-		void requestTexture(ClientUser *);
+		void verifyTexture(boost::shared_ptr<ClientUser> cp, bool allowupdate = true);
+		void requestTexture(boost::shared_ptr<ClientUser>);
 
 	public slots:
 		void updateOverlay();

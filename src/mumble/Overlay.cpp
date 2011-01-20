@@ -188,10 +188,10 @@ void Overlay::forceSettings() {
 	updateOverlay();
 }
 
-void Overlay::verifyTexture(ClientUser *cp, bool allowupdate) {
+void Overlay::verifyTexture(boost::shared_ptr<ClientUser> cp, bool allowupdate) {
 	qsQueried.remove(cp->uiSession);
 
-	ClientUser *self = ClientUser::get(g.uiSession);
+	ClientUserPtr self = ClientUser::get(g.uiSession);
 	allowupdate = allowupdate && self && self->cChannel->isLinked(cp->cChannel);
 
 	if (allowupdate && ! cp->qbaTextureHash.isEmpty() && cp->qbaTexture.isEmpty())
@@ -320,7 +320,7 @@ void Overlay::updateOverlay() {
 	}
 }
 
-void Overlay::requestTexture(ClientUser *cu) {
+void Overlay::requestTexture(boost::shared_ptr<ClientUser> cu) {
 	if (cu->qbaTexture.isEmpty() && ! qsQueried.contains(cu->uiSession)) {
 		cu->qbaTexture=Database::blob(cu->qbaTextureHash);
 		if (cu->qbaTexture.isEmpty())

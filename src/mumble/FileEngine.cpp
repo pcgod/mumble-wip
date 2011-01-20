@@ -49,9 +49,8 @@ MumbleImageFileEngine::MumbleImageFileEngine(const QUrl &url) : QAbstractFileEng
 	qslPath = url.path().split(QLatin1Char('/'), QString::SkipEmptyParts);
 
 	if (domain == QLatin1String("avatar") && (qslPath.size() == 2)) {
-
 		unsigned int session = qslPath.first().toUInt();
-		ClientUser *cu = ClientUser::get(session);
+		ClientUserPtr cu = ClientUser::get(session);
 
 		if (cu)
 			qbData.setData(cu->qbaTexture);

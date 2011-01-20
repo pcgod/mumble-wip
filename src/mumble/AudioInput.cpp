@@ -918,7 +918,7 @@ void AudioInput::flushCheck(const QByteArray &frame, bool terminator) {
 	}
 
 	if (g.s.lmLoopMode == Settings::Local)
-		LoopUser::lpLoopy.addFrame(QByteArray(data, pds.size() + 1));
+		LoopUser::lpLoopy->addFrame(QByteArray(data, pds.size() + 1));
 	else if (sh)
 		sh->sendMessage(data, pds.size() + 1);
 

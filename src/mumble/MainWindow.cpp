@@ -178,14 +178,6 @@ MainWindow::MainWindow(QWidget *p) : QMainWindow(p) {
 
 	voiceRecorderDialog = NULL;
 
-#if QT_VERSION >= 0x040600
-	cuContextUser = QWeakPointer<ClientUser>();
-	cContextChannel = QWeakPointer<Channel>();
-#else
-	cuContextUser = QPointer<ClientUser>();
-	cContextChannel = QPointer<Channel>();
-#endif
-
 	qtReconnect = new QTimer(this);
 	qtReconnect->setInterval(10000);
 	qtReconnect->setSingleShot(true);
@@ -461,7 +453,7 @@ void MainWindow::hideEvent(QHideEvent *e) {
 }
 
 void MainWindow::updateTrayIcon() {
-	ClientUser *p=ClientUser::get(g.uiSession);
+	ClientUserPtr p = ClientUser::get(g.uiSession);
 
 	if (g.s.bDeaf) {
 		qstiIcon->setIcon(qiIconDeafSelf);
@@ -501,11 +493,8 @@ Channel *MainWindow::getContextMenuChannel() {
 	return NULL;
 }
 
-ClientUser *MainWindow::getContextMenuUser() {
-	if (cuContextUser)
-		return cuContextUser.data();
-
-	return NULL;
+boost::shared_ptr<ClientUser> MainWindow::getContextMenuUser() {
+	return cuContextUser.lock();
 }
 
 bool MainWindow::handleSpecialContextMenu(const QUrl &url, const QPoint &pos_, bool focus) {
@@ -513,31 +502,28 @@ bool MainWindow::handleSpecialContextMenu(const QUrl &url, const QPoint &pos_, b
 		bool ok = false;
 		QString x(url.host());
 		if (x.length() == 40) {
-			ClientUser *cu = ClientUser::getByHash(x);
+			ClientUserPtr cu = ClientUser::getByHash(x);
 			if (cu) {
-				cuContextUser = cu;
+				cuContextUser = boost::weak_ptr<ClientUser>(cu);
 				ok = true;
 			}
 		} else {
 			QByteArray qbaServerDigest = QByteArray::fromBase64(url.path().remove(0, 1).toLatin1());
-			cuContextUser = ClientUser::get(url.host().toInt(&ok, 10));
+			cuContextUser = boost::weak_ptr<ClientUser>(ClientUser::get(url.host().toInt(&ok, 10)));
 			ServerHandlerPtr sh = g.sh;
 			ok = ok && sh && (qbaServerDigest == sh->qbaDigest);
 		}
-		if (ok && cuContextUser) {
+		ClientUserPtr cu = cuContextUser.lock();
+		if (ok && cu) {
 			if (focus) {
-				qtvUsers->setCurrentIndex(pmModel->index(cuContextUser.data()));
+				qtvUsers->setCurrentIndex(pmModel->index(cu));
 				qteChat->setFocus();
 			} else {
 				qpContextPosition = QPoint();
 				qmUser->exec(pos_, NULL);
 			}
 		}
-#if QT_VERSION >= 0x040600
-		cuContextUser.clear();
-#else
-		cuContextUser = NULL;
-#endif
+		cuContextUser.reset();
 	} else if (url.scheme() == QString::fromLatin1("channelid")) {
 		bool ok;
 		QByteArray qbaServerDigest = QByteArray::fromBase64(url.path().remove(0, 1).toLatin1());
@@ -570,21 +556,13 @@ void MainWindow::on_qtvUsers_customContextMenuRequested(const QPoint &mpos) {
 		idx = qtvUsers->currentIndex();
 	else
 		qtvUsers->setCurrentIndex(idx);
-	ClientUser *p = pmModel->getUser(idx);
+	ClientUserPtr p = pmModel->getUser(idx);
 
 	qpContextPosition = mpos;
 	if (p) {
-#if QT_VERSION >= 0x040600
-		cuContextUser.clear();
-#else
-		cuContextUser = NULL;
-#endif
+		cuContextUser.reset();
 		qmUser->exec(qtvUsers->mapToGlobal(mpos), qaUserMute);
-#if QT_VERSION >= 0x040600
-		cuContextUser.clear();
-#else
-		cuContextUser = NULL;
-#endif
+		cuContextUser.reset();
 	} else {
 #if QT_VERSION >= 0x040600
 		cContextChannel.clear();
@@ -927,7 +905,7 @@ void MainWindow::on_Reconnect_timeout() {
 }
 
 void MainWindow::on_qmSelf_aboutToShow() {
-	ClientUser *user = ClientUser::get(g.uiSession);
+	ClientUserPtr user = ClientUser::get(g.uiSession);
 
 	qaServerTexture->setEnabled(user != NULL);
 	qaSelfComment->setEnabled(user != NULL);
@@ -945,7 +923,7 @@ void MainWindow::on_qmSelf_aboutToShow() {
 }
 
 void MainWindow::on_qaSelfComment_triggered() {
-	ClientUser *p = ClientUser::get(g.uiSession);
+	ClientUserPtr p = ClientUser::get(g.uiSession);
 	if (!p)
 		return;
 
@@ -983,7 +961,7 @@ void MainWindow::on_qaSelfComment_triggered() {
 }
 
 void MainWindow::on_qaSelfRegister_triggered() {
-	ClientUser *p = ClientUser::get(g.uiSession);
+	ClientUserPtr p = ClientUser::get(g.uiSession);
 	if (!p)
 		return;
 
@@ -1140,7 +1118,8 @@ void MainWindow::voiceRecorderDialog_finished(int) {
 }
 
 void MainWindow::qmUser_aboutToShow() {
-	ClientUser *p = NULL;
+	ClientUserPtr p;
+
 	if (g.uiSession != 0) {
 		QModelIndex idx;
 		if (! qpContextPosition.isNull())
@@ -1151,11 +1130,11 @@ void MainWindow::qmUser_aboutToShow() {
 
 		p = pmModel->getUser(idx);
 
-		if (cuContextUser)
-			p = cuContextUser.data();
+		if (ClientUserPtr cu = cuContextUser.lock())
+			p = cu;
 	}
 
-	cuContextUser = p;
+	cuContextUser = boost::weak_ptr<ClientUser>(p);
 	qpContextPosition = QPoint();
 
 	bool self = p && (p->uiSession == g.uiSession);
@@ -1245,7 +1224,7 @@ void MainWindow::qmUser_aboutToShow() {
 }
 
 void MainWindow::on_qaUserMute_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1263,7 +1242,7 @@ void MainWindow::on_qaUserMute_triggered() {
 }
 
 void MainWindow::on_qaUserLocalMute_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1275,7 +1254,7 @@ void MainWindow::on_qaUserLocalMute_triggered() {
 }
 
 void MainWindow::on_qaUserDeaf_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1286,7 +1265,7 @@ void MainWindow::on_qaUserDeaf_triggered() {
 }
 
 void MainWindow::on_qaSelfPrioritySpeaker_triggered() {
-	ClientUser *p = ClientUser::get(g.uiSession);
+	ClientUserPtr p = ClientUser::get(g.uiSession);
 	if (!p)
 		return;
 
@@ -1297,7 +1276,7 @@ void MainWindow::on_qaSelfPrioritySpeaker_triggered() {
 }
 
 void MainWindow::on_qaUserPrioritySpeaker_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1308,7 +1287,7 @@ void MainWindow::on_qaUserPrioritySpeaker_triggered() {
 }
 
 void MainWindow::on_qaUserRegister_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1330,7 +1309,7 @@ void MainWindow::on_qaUserRegister_triggered() {
 }
 
 void MainWindow::on_qaUserFriendAdd_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1343,7 +1322,7 @@ void MainWindow::on_qaUserFriendUpdate_triggered() {
 }
 
 void MainWindow::on_qaUserFriendRemove_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1352,7 +1331,7 @@ void MainWindow::on_qaUserFriendRemove_triggered() {
 }
 
 void MainWindow::on_qaUserKick_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1371,7 +1350,7 @@ void MainWindow::on_qaUserKick_triggered() {
 }
 
 void MainWindow::on_qaUserBan_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	if (!p)
 		return;
 
@@ -1389,15 +1368,15 @@ void MainWindow::on_qaUserBan_triggered() {
 }
 
 void MainWindow::on_qaUserTextMessage_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 
 	if (!p)
 		return;
 
-	openTextMessageDialog(p);
+	openTextMessageDialog(ClientUserPtr(p));
 }
 
-void MainWindow::openTextMessageDialog(ClientUser *p) {
+void MainWindow::openTextMessageDialog(boost::shared_ptr<ClientUser> p) {
 	unsigned int session = p->uiSession;
 
 	::TextMessage *texm = new ::TextMessage(this, tr("Sending message to %1").arg(p->qsName));
@@ -1419,13 +1398,9 @@ void MainWindow::openTextMessageDialog(ClientUser *p) {
 }
 
 void MainWindow::on_qaUserCommentView_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 	// This has to be done here because UserModel could've set it.
-#if QT_VERSION >= 0x040600
-	cuContextUser.clear();
-#else
-	cuContextUser = NULL;
-#endif
+	cuContextUser.reset();
 
 	if (!p)
 		return;
@@ -1449,7 +1424,7 @@ void MainWindow::on_qaUserCommentView_triggered() {
 }
 
 void MainWindow::on_qaUserCommentReset_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 
 	if (!p)
 		return;
@@ -1465,7 +1440,7 @@ void MainWindow::on_qaUserCommentReset_triggered() {
 }
 
 void MainWindow::on_qaUserInformation_triggered() {
-	ClientUser *p = getContextMenuUser();
+	ClientUserPtr p = getContextMenuUser();
 
 	if (!p)
 		return;
@@ -1481,7 +1456,7 @@ void MainWindow::on_qaQuit_triggered() {
 void MainWindow::sendChatbarMessage(QString qsText) {
 	if (g.uiSession == 0) return; // Check if text & connection is available
 
-	ClientUser *p = pmModel->getUser(qtvUsers->currentIndex());
+	ClientUserPtr p = pmModel->getUser(qtvUsers->currentIndex());
 	Channel *c = pmModel->getChannel(qtvUsers->currentIndex());
 
 	qsText = Qt::escape(qsText);
@@ -1756,7 +1731,7 @@ void MainWindow::on_qaChannelCopyURL_triggered() {
 }
 
 void MainWindow::updateMenuPermissions() {
-	ClientUser *cu = NULL;
+	ClientUserPtr cu;
 	Channel *c = NULL;
 
 	if (g.uiSession) {
@@ -1794,7 +1769,7 @@ void MainWindow::updateMenuPermissions() {
 		cparent->uiPermissions = pparent;
 	}
 
-	ClientUser *user = g.uiSession ? ClientUser::get(g.uiSession) : NULL;
+	ClientUserPtr user = g.uiSession ? ClientUser::get(g.uiSession) : ClientUserPtr();
 	Channel *homec = user ? user->cChannel : NULL;
 	ChanACL::Permissions homep = static_cast<ChanACL::Permissions>(homec ? homec->uiPermissions : ChanACL::None);
 
@@ -1836,7 +1811,7 @@ void MainWindow::updateMenuPermissions() {
 }
 
 void MainWindow::talkingChanged() {
-	ClientUser *p = ClientUser::get(g.uiSession);
+	ClientUserPtr p = ClientUser::get(g.uiSession);
 	if (p && g.s.bAttenuateOthersOnTalk) {
 		switch (p->tsState) {
 			case Settings::Talking:
@@ -2114,7 +2089,7 @@ void MainWindow::updateTarget() {
 			nt.bUsers = st.bUsers;
 			if (st.bUsers) {
 				foreach(const QString &hash, st.qlUsers) {
-					ClientUser *p = pmModel->getUser(hash);
+					ClientUserPtr p = pmModel->getUser(hash);
 					if (p)
 						nt.qlSessions.append(p->uiSession);
 				}
@@ -2546,7 +2521,7 @@ void MainWindow::on_Icon_activated(QSystemTrayIcon::ActivationReason reason) {
 }
 
 void MainWindow::qtvUserCurrentChanged(const QModelIndex &, const QModelIndex &) {
-	User *p = pmModel->getUser(qtvUsers->currentIndex());
+	ClientUserPtr p = pmModel->getUser(qtvUsers->currentIndex());
 	Channel *c = pmModel->getChannel(qtvUsers->currentIndex());
 
 	if (g.uiSession == 0) {
@@ -2647,7 +2622,7 @@ void MainWindow::context_triggered() {
 	QAction *a = qobject_cast<QAction *>(sender());
 
 	Channel *c = pmModel->getChannel(qtvUsers->currentIndex());
-	ClientUser *p = pmModel->getUser(qtvUsers->currentIndex());
+	ClientUserPtr p = pmModel->getUser(qtvUsers->currentIndex());
 
 	MumbleProto::ContextAction mpca;
 	mpca.set_action(u8(a->data().toString()));

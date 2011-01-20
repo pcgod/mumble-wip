@@ -142,7 +142,7 @@ class AudioOutputSpeech : public AudioOutputUser {
 		unsigned char ucFlags;
 	public:
 		int iMissedFrames;
-		ClientUser *p;
+		boost::shared_ptr<ClientUser> p;
 
 		virtual bool needSamples(unsigned int snum);
 
@@ -220,7 +220,7 @@ class AudioOutput : public QThread {
 		unsigned int iChannels;
 		unsigned int iSampleSize;
 		QReadWriteLock qrwlOutputs;
-		QMultiHash<const ClientUser *, AudioOutputUser *> qmOutputs;
+		QMultiHash<const boost::shared_ptr<ClientUser>, AudioOutputUser *> qmOutputs;
 
 		virtual void removeBuffer(AudioOutputUser *);
 		void initializeMixer(const unsigned int *chanmasks, bool forceheadphone = false);
@@ -231,8 +231,8 @@ class AudioOutput : public QThread {
 		AudioOutput();
 		~AudioOutput();
 
-		void addFrameToBuffer(ClientUser *, const QByteArray &, unsigned int iSeq, MessageHandler::UDPMessageType type);
-		void removeBuffer(const ClientUser *);
+		void addFrameToBuffer(boost::shared_ptr<ClientUser>, const QByteArray &, unsigned int iSeq, MessageHandler::UDPMessageType type);
+		void removeBuffer(const boost::shared_ptr<ClientUser>);
 		AudioOutputSample *playSample(const QString &filename, bool loop = false);
 		void run() = 0;
 		virtual bool isAlive() const;

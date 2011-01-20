@@ -102,11 +102,10 @@ class MainWindow : public QMainWindow, public MessageHandler, public Ui::MainWin
 
 #if QT_VERSION >= 0x040600
 		QWeakPointer<Channel> cContextChannel;
-		QWeakPointer<ClientUser> cuContextUser;
 #else
 		QPointer<Channel> cContextChannel;
-		QPointer<ClientUser> cuContextUser;
 #endif
+		boost::weak_ptr<ClientUser> cuContextUser;
 		QPoint qpContextPosition;
 
 		void recheckTTS();
@@ -116,7 +115,7 @@ class MainWindow : public QMainWindow, public MessageHandler, public Ui::MainWin
 		QPair<QByteArray, QImage> openImageFile();
 		static const QString defaultStyleSheet;
 
-		void openTextMessageDialog(ClientUser *p);
+		void openTextMessageDialog(boost::shared_ptr<ClientUser> p);
 
 #ifdef Q_OS_WIN
 		Timer tInactive;
@@ -148,7 +147,7 @@ class MainWindow : public QMainWindow, public MessageHandler, public Ui::MainWin
 
 		bool handleSpecialContextMenu(const QUrl &url, const QPoint &pos_, bool focus = false);
 		Channel* getContextMenuChannel();
-		ClientUser* getContextMenuUser();
+		boost::shared_ptr<ClientUser> getContextMenuUser();
 
 	public slots:
 		void on_qmServer_aboutToShow();

@@ -282,7 +282,7 @@ QString Log::formatChannel(::Channel *c) {
 	return QString::fromLatin1("<a href='channelid://%1/%3' class='log-channel'>%2</a>").arg(c->iId).arg(c->qsName).arg(QString::fromLatin1(g.sh->qbaDigest.toBase64()));
 }
 
-QString Log::formatClientUser(ClientUser *cu, LogColorType t) {
+QString Log::formatClientUser(boost::shared_ptr<ClientUser> cu, LogColorType t) {
 	QString className;
 	if (t == Log::Target) {
 		className = QString::fromLatin1("target");

@@ -44,7 +44,7 @@ class CodecInit : public DeferInit {
 
 #define DOUBLE_RAND (rand()/static_cast<double>(RAND_MAX))
 
-LoopUser LoopUser::lpLoopy;
+boost::shared_ptr<LoopUser> LoopUser::lpLoopy = boost::shared_ptr<LoopUser>(new LoopUser());
 CodecInit ciInit;
 
 void CodecInit::initialize() {
@@ -345,7 +345,7 @@ void LoopUser::addFrame(const QByteArray &packet) {
 		AudioOutputPtr ao = g.ao;
 		if (ao) {
 			MessageHandler::UDPMessageType msgType = static_cast<MessageHandler::UDPMessageType>((packet.at(0) >> 5) & 0x7);
-			ao->addFrameToBuffer(this, QByteArray(), 0, msgType);
+			ao->addFrameToBuffer(shared_from_this(), QByteArray(), 0, msgType);
 		}
 	}
 
@@ -382,7 +382,7 @@ void LoopUser::fetchFrames() {
 
 		MessageHandler::UDPMessageType msgType = static_cast<MessageHandler::UDPMessageType>((msgFlags >> 5) & 0x7);
 
-		ao->addFrameToBuffer(this, qba, iSeq, msgType);
+		ao->addFrameToBuffer(shared_from_this(), qba, iSeq, msgType);
 		i = qmPackets.erase(i);
 	}
 
@@ -396,7 +396,7 @@ RecordUser::RecordUser() : LoopUser() {
 RecordUser::~RecordUser() {
 	AudioOutputPtr ao = g.ao;
 	if (ao)
-		ao->removeBuffer(this);
+		ao->removeBuffer(shared_from_this());
 }
 
 void RecordUser::addFrame(const QByteArray &packet) {
@@ -418,7 +418,7 @@ void RecordUser::addFrame(const QByteArray &packet) {
 
 	MessageHandler::UDPMessageType msgType = static_cast<MessageHandler::UDPMessageType>((msgFlags >> 5) & 0x7);
 
-	ao->addFrameToBuffer(this, qba, iSeq, msgType);
+	ao->addFrameToBuffer(shared_from_this(), qba, iSeq, msgType);
 }
 
 void Audio::startOutput(const QString &output) {

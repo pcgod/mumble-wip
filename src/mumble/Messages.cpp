@@ -54,20 +54,20 @@
 #include "UserInformation.h"
 
 #define ACTOR_INIT \
-	ClientUser *pSrc=NULL; \
+	boost::shared_ptr<ClientUser> pSrc; \
 	if (msg.has_actor()) \
 		pSrc = ClientUser::get(msg.actor()); \
 	Q_UNUSED(pSrc);
 
 #define VICTIM_INIT \
-	ClientUser *pDst=ClientUser::get(msg.session()); \
+	boost::shared_ptr<ClientUser> pDst = ClientUser::get(msg.session()); \
 	 if (! pDst) { \
  		qWarning("MainWindow: Message for nonexistant victim %d.", msg.session()); \
 		return; \
 	}
 
 #define SELF_INIT \
-	ClientUser *pSelf = ClientUser::get(g.uiSession);
+	boost::shared_ptr<ClientUser> pSelf = ClientUser::get(g.uiSession);
 
 
 void MainWindow::msgAuthenticate(const MumbleProto::Authenticate &) {
@@ -123,8 +123,8 @@ void MainWindow::msgServerSync(const MumbleProto::ServerSync &msg) {
 		GlobalShortcutEngine::engine->bNeedRemap = true;
 	}
 
-	ClientUser *p=ClientUser::get(g.uiSession);
-	connect(p, SIGNAL(talkingChanged()), this, SLOT(talkingChanged()));
+	boost::shared_ptr<ClientUser> p = ClientUser::get(g.uiSession);
+	connect(p.get(), SIGNAL(talkingChanged()), this, SLOT(talkingChanged()));
 
 	qstiIcon->setToolTip(tr("Mumble: %1").arg(Channel::get(0)->qsName));
 
@@ -240,7 +240,7 @@ void MainWindow::msgUDPTunnel(const MumbleProto::UDPTunnel &) {
 void MainWindow::msgUserState(const MumbleProto::UserState &msg) {
 	ACTOR_INIT;
 	SELF_INIT;
-	ClientUser *pDst = ClientUser::get(msg.session());
+	boost::shared_ptr<ClientUser> pDst = ClientUser::get(msg.session());
 	bool bNewUser = false;
 
 	if (! pDst) {

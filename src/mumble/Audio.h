@@ -136,7 +136,7 @@ class LoopUser : public ClientUser {
 		QMultiMap<float, QByteArray> qmPackets;
 		LoopUser();
 	public:
-		static LoopUser lpLoopy;
+		static boost::shared_ptr<LoopUser> lpLoopy;
 		virtual void addFrame(const QByteArray &packet);
 		void fetchFrames();
 };

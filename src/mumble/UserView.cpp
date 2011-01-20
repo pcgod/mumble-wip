@@ -165,7 +165,7 @@ void UserView::mouseReleaseEvent(QMouseEvent *evt) {
 	QModelIndex idx = indexAt(qpos);
 	if ((evt->button() == Qt::LeftButton) && idx.isValid()) {
 		UserModel *um = static_cast<UserModel *>(model());
-		ClientUser *cu = um->getUser(idx);
+		ClientUserPtr cu = um->getUser(idx);
 		Channel * c = um->getChannel(idx);
 		if ((cu && ! cu->qbaCommentHash.isEmpty()) ||
 		        (! cu && c && ! c->qbaDescHash.isEmpty())) {
@@ -222,7 +222,7 @@ void UserView::keyPressEvent(QKeyEvent *ev) {
 
 void UserView::nodeActivated(const QModelIndex &idx) {
 	UserModel *um = static_cast<UserModel *>(model());
-	ClientUser *p = um->getUser(idx);
+	ClientUserPtr p = um->getUser(idx);
 	if (p) {
 		g.mw->openTextMessageDialog(p);
 		return;

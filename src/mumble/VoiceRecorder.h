@@ -68,10 +68,10 @@ class VoiceRecorder : public QThread {
 		// Stores information about a recording buffer.
 		struct RecordBuffer {
 			// Constructs a new RecordBuffer object.
-			explicit RecordBuffer(const ClientUser *cu, boost::shared_array<float> buffer, int samples, quint64 timestamp);
+			explicit RecordBuffer(const boost::shared_ptr<ClientUser> cu, boost::shared_array<float> buffer, int samples, quint64 timestamp);
 
 			// The user to which this buffer belongs.
-			const ClientUser *cuUser;
+			const boost::shared_ptr<ClientUser> cuUser;
 
 			// The buffer.
 			boost::shared_array<float> fBuffer;
@@ -154,7 +154,7 @@ class VoiceRecorder : public QThread {
 		void stop();
 
 		// Adds an audio buffer which contains |samples| audio samples to the recorder.
-		void addBuffer(const ClientUser *cu, boost::shared_array<float> buffer, int samples);
+		void addBuffer(const boost::shared_ptr<ClientUser> cu, boost::shared_array<float> buffer, int samples);
 
 		// Sets the sample rate of the recorder. The sample rate can't change while the recoder is active.
 		void setSampleRate(int sampleRate);

@@ -41,12 +41,12 @@
 #include "MainWindow.h"
 #include "GlobalShortcut.h"
 
-OverlayUser::OverlayUser(ClientUser *cu, unsigned int height, OverlaySettings *osptr) : OverlayGroup(), os(osptr), uiSize(height), cuUser(cu), tsColor(Settings::Passive) {
+OverlayUser::OverlayUser(boost::shared_ptr<ClientUser> cu, unsigned int height, OverlaySettings *osptr) : OverlayGroup(), os(osptr), uiSize(height), cuUser(cu), tsColor(Settings::Passive) {
 	setup();
 	updateLayout();
 }
 
-OverlayUser::OverlayUser(Settings::TalkState ts, unsigned int height, OverlaySettings *osptr) : OverlayGroup(), os(osptr), uiSize(height), cuUser(NULL), tsColor(ts) {
+OverlayUser::OverlayUser(Settings::TalkState ts, unsigned int height, OverlaySettings *osptr) : OverlayGroup(), os(osptr), uiSize(height), tsColor(ts) {
 	qsChannelName = Overlay::tr("Channel");
 
 	setup();
@@ -221,7 +221,7 @@ void OverlayUser::updateUser() {
 	qgpiAvatar->setVisible(os->bAvatar);
 
 	if (cuUser) {
-		ClientUser *self = ClientUser::get(g.uiSession);
+		ClientUserPtr self = ClientUser::get(g.uiSession);
 
 		if (os->bMutedDeafened) {
 			if (cuUser->bDeaf || cuUser->bSelfDeaf) {

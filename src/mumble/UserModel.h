@@ -44,7 +44,7 @@ private:
 	Q_DISABLE_COPY(ModelItem)
 public:
 	Channel *cChan;
-	ClientUser *pUser;
+	boost::shared_ptr<ClientUser> pUser;
 
 	bool bCommentSeen;
 
@@ -52,26 +52,26 @@ public:
 	QList<ModelItem *> qlChildren;
 	int iUsers;
 
-	static QHash <Channel *, ModelItem *> c_qhChannels;
-	static QHash <ClientUser *, ModelItem *> c_qhUsers;
+	static QHash <const Channel *, ModelItem *> c_qhChannels;
+	static QHash <const boost::shared_ptr<ClientUser>, ModelItem *> c_qhUsers;
 	static bool bUsersTop;
 
 	ModelItem(Channel *c);
-	ModelItem(ClientUser *p);
+	ModelItem(boost::shared_ptr<ClientUser> p);
 	ModelItem(ModelItem *);
 	~ModelItem();
 
 	ModelItem *child(int idx) const;
 
 	bool validRow(int idx) const;
-	ClientUser *userAt(int idx) const;
+	boost::shared_ptr<ClientUser> userAt(int idx) const;
 	Channel *channelAt(int idx) const;
 	int rowOf(Channel *c) const;
-	int rowOf(ClientUser *p) const;
+	int rowOf(boost::shared_ptr<ClientUser> p) const;
 	int rowOfSelf() const;
 	int rows() const;
 	int insertIndex(Channel *c) const;
-	int insertIndex(ClientUser *p) const;
+	int insertIndex(boost::shared_ptr<ClientUser> p) const;
 	QString hash() const;
 	void wipe();
 };
@@ -93,7 +93,7 @@ class UserModel : public QAbstractItemModel {
 		QIcon qiComment, qiCommentSeen;
 		ModelItem *miRoot;
 		QSet<Channel *> qsLinked;
-		QMap<QString, ClientUser *> qmHashes;
+		QMap<QString, boost::shared_ptr<ClientUser>> qmHashes;
 
 		bool bClicked;
 
@@ -105,7 +105,7 @@ class UserModel : public QAbstractItemModel {
 		UserModel(QObject *parent = 0);
 		~UserModel();
 
-		QModelIndex index(ClientUser *, int column = 0) const;
+		QModelIndex index(boost::shared_ptr<ClientUser>, int column = 0) const;
 		QModelIndex index(Channel *, int column = 0) const;
 		QModelIndex index(ModelItem *) const;
 
@@ -121,31 +121,31 @@ class UserModel : public QAbstractItemModel {
 		QMimeData *mimeData(const QModelIndexList &idx) const;
 		bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex & parent);
 
-		ClientUser *addUser(unsigned int id, const QString &name);
-		ClientUser *getUser(const QModelIndex &idx) const;
-		ClientUser *getUser(const QString &hash) const;
+		boost::shared_ptr<ClientUser> addUser(unsigned int id, const QString &name);
+		boost::shared_ptr<ClientUser> getUser(const QModelIndex &idx) const;
+		boost::shared_ptr<ClientUser> getUser(const QString &hash) const;
 
 		Channel *addChannel(int id, Channel *p, const QString &name);
 		Channel *getChannel(const QModelIndex &idx) const;
 
 		Channel *getSubChannel(Channel *p, int idx) const;
 
-		void renameUser(ClientUser *p, const QString &name);
+		void renameUser(boost::shared_ptr<ClientUser> p, const QString &name);
 		void renameChannel(Channel *c, const QString &name);
 		void repositionChannel(Channel *c, const int position);
-		void setUserId(ClientUser *p, int id);
-		void setHash(ClientUser *p, const QString &hash);
-		void setFriendName(ClientUser *p, const QString &name);
-		void setComment(ClientUser *p, const QString &comment);
-		void setCommentHash(ClientUser *p, const QByteArray &hash);
+		void setUserId(boost::shared_ptr<ClientUser> p, int id);
+		void setHash(boost::shared_ptr<ClientUser> p, const QString &hash);
+		void setFriendName(boost::shared_ptr<ClientUser> p, const QString &name);
+		void setComment(boost::shared_ptr<ClientUser> p, const QString &comment);
+		void setCommentHash(boost::shared_ptr<ClientUser> p, const QByteArray &hash);
 		void seenComment(const QModelIndex &idx);
 
-		void moveUser(ClientUser *p, Channel *c);
+		void moveUser(boost::shared_ptr<ClientUser> p, Channel *c);
 		void moveChannel(Channel *c, Channel *p);
 		void setComment(Channel *c, const QString &comment);
 		void setCommentHash(Channel *c, const QByteArray &hash);
 
-		void removeUser(ClientUser *p);
+		void removeUser(boost::shared_ptr<ClientUser> p);
 		void removeChannel(Channel *c);
 
 		void linkChannels(Channel *c, QList<Channel *> links);

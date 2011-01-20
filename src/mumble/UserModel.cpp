@@ -42,20 +42,19 @@
 #include "Database.h"
 #include "Usage.h"
 
-QHash <Channel *, ModelItem *> ModelItem::c_qhChannels;
-QHash <ClientUser *, ModelItem *> ModelItem::c_qhUsers;
+QHash <const Channel *, ModelItem *> ModelItem::c_qhChannels;
+QHash <const ClientUserPtr, ModelItem *> ModelItem::c_qhUsers;
 bool ModelItem::bUsersTop = false;
 
 ModelItem::ModelItem(Channel *c) {
 	this->cChan = c;
-	this->pUser = NULL;
 	bCommentSeen = true;
 	c_qhChannels.insert(c, this);
 	parent = c_qhChannels.value(c->cParent);
 	iUsers = 0;
 }
 
-ModelItem::ModelItem(ClientUser *p) {
+ModelItem::ModelItem(boost::shared_ptr<ClientUser> p) {
 	this->cChan = NULL;
 	this->pUser = p;
 	bCommentSeen = true;
@@ -108,9 +107,9 @@ bool ModelItem::validRow(int idx) const {
 	return ((idx >= 0) && (idx < qlChildren.count()));
 }
 
-ClientUser *ModelItem::userAt(int idx) const {
+boost::shared_ptr<ClientUser> ModelItem::userAt(int idx) const {
 	if (! validRow(idx))
-		return NULL;
+		return ClientUserPtr();
 	return qlChildren.at(idx)->pUser;
 }
 
@@ -127,7 +126,7 @@ int ModelItem::rowOf(Channel *c) const {
 	return -1;
 }
 
-int ModelItem::rowOf(ClientUser *p) const {
+int ModelItem::rowOf(boost::shared_ptr<ClientUser> p) const {
 	for (int i=0;i<qlChildren.count();i++)
 		if (qlChildren.at(i)->pUser == p)
 			return i;
@@ -168,8 +167,8 @@ int ModelItem::insertIndex(Channel *c) const {
 	return qlpc.indexOf(c) + (bUsersTop ? ocount : 0);
 }
 
-int ModelItem::insertIndex(ClientUser *p) const {
-	QList<ClientUser*> qlclientuser;
+int ModelItem::insertIndex(boost::shared_ptr<ClientUser> p) const {
+	QList< ClientUserPtr > qlclientuser;
 	ModelItem *item;
 
 	int ocount = 0;
@@ -277,7 +276,7 @@ QModelIndex UserModel::index(int row, int column, const QModelIndex &p) const {
 	return idx;
 }
 
-QModelIndex UserModel::index(ClientUser *p, int column) const {
+QModelIndex UserModel::index(boost::shared_ptr<ClientUser> p, int column) const {
 	ModelItem *item = ModelItem::c_qhUsers.value(p);
 	Q_ASSERT(p);
 	Q_ASSERT(item);
@@ -352,7 +351,7 @@ QVariant UserModel::data(const QModelIndex &idx, int role) const {
 	ModelItem *item = static_cast<ModelItem *>(idx.internalPointer());
 
 	Channel *c = item->cChan;
-	ClientUser *p = item->pUser;
+	ClientUserPtr p = item->pUser;
 
 	if (!c && !p) {
 		return QVariant();
@@ -482,7 +481,7 @@ Qt::ItemFlags UserModel::flags(const QModelIndex &idx) const {
 
 QVariant UserModel::otherRoles(const QModelIndex &idx, int role) const {
 	ModelItem *item = static_cast<ModelItem *>(idx.internalPointer());
-	ClientUser *p = item->pUser;
+	ClientUserPtr p = item->pUser;
 	Channel *c = item->cChan;
 	int section = idx.column();
 	bool isUser = p != NULL;
@@ -828,14 +827,14 @@ void UserModel::recheckLinks() {
 		updateOverlay();
 }
 
-ClientUser *UserModel::addUser(unsigned int id, const QString &name) {
-	ClientUser *p = ClientUser::add(id, this);
+boost::shared_ptr<ClientUser> UserModel::addUser(unsigned int id, const QString &name) {
+	ClientUserPtr p = ClientUser::add(id, this);
 	p->qsName = name;
 
 	ModelItem *item = new ModelItem(p);
 
-	connect(p, SIGNAL(talkingChanged()), this, SLOT(userTalkingChanged()));
-	connect(p, SIGNAL(muteDeafChanged()), this, SLOT(userMuteDeafChanged()));
+	connect(p.get(), SIGNAL(talkingChanged()), this, SLOT(userTalkingChanged()));
+	connect(p.get(), SIGNAL(muteDeafChanged()), this, SLOT(userMuteDeafChanged()));
 
 	Channel *c = Channel::get(0);
 	ModelItem *citem = ModelItem::c_qhChannels.value(c);
@@ -859,7 +858,7 @@ ClientUser *UserModel::addUser(unsigned int id, const QString &name) {
 	return p;
 }
 
-void UserModel::removeUser(ClientUser *p) {
+void UserModel::removeUser(boost::shared_ptr<ClientUser> p) {
 	if (g.uiSession && p->uiSession == g.uiSession)
 		g.uiSession = 0;
 	Channel *c = p->cChannel;
@@ -869,7 +868,7 @@ void UserModel::removeUser(ClientUser *p) {
 	int row = citem->qlChildren.indexOf(item);
 
 	beginRemoveRows(index(citem), row, row);
-	c->removeUser(p);
+	c->removeUser(p.get());
 	citem->qlChildren.removeAt(row);
 	endRemoveRows();
 
@@ -892,11 +891,10 @@ void UserModel::removeUser(ClientUser *p) {
 	g.mw->uUsage.addJitter(p);
 #endif
 
-	delete p;
 	delete item;
 }
 
-void UserModel::moveUser(ClientUser *p, Channel *np) {
+void UserModel::moveUser(boost::shared_ptr<ClientUser> p, Channel *np) {
 	Channel *oc = p->cChannel;
 	ModelItem *opi = ModelItem::c_qhChannels.value(oc);
 	ModelItem *pi = ModelItem::c_qhChannels.value(np);
@@ -926,7 +924,7 @@ void UserModel::moveUser(ClientUser *p, Channel *np) {
 	updateOverlay();
 }
 
-void UserModel::renameUser(ClientUser *p, const QString &name) {
+void UserModel::renameUser(boost::shared_ptr<ClientUser> p, const QString &name) {
 	Channel *c = p->cChannel;
 	p->qsName = name;
 
@@ -937,13 +935,13 @@ void UserModel::renameUser(ClientUser *p, const QString &name) {
 	updateOverlay();
 }
 
-void UserModel::setUserId(ClientUser *p, int id) {
+void UserModel::setUserId(boost::shared_ptr<ClientUser> p, int id) {
 	p->iId = id;
 	QModelIndex idx = index(p, 0);
 	emit dataChanged(idx, idx);
 }
 
-void UserModel::setHash(ClientUser *p, const QString &hash) {
+void UserModel::setHash(boost::shared_ptr<ClientUser> p, const QString &hash) {
 	if (! p->qsHash.isEmpty())
 		qmHashes.remove(p->qsHash);
 
@@ -951,13 +949,13 @@ void UserModel::setHash(ClientUser *p, const QString &hash) {
 	qmHashes.insert(p->qsHash, p);
 }
 
-void UserModel::setFriendName(ClientUser *p, const QString &name) {
+void UserModel::setFriendName(boost::shared_ptr<ClientUser> p, const QString &name) {
 	p->qsFriendName = name;
 	QModelIndex idx = index(p, 0);
 	emit dataChanged(idx, idx);
 }
 
-void UserModel::setComment(ClientUser *cu, const QString &comment) {
+void UserModel::setComment(boost::shared_ptr<ClientUser> cu, const QString &comment) {
 	cu->qbaCommentHash = comment.isEmpty() ? QByteArray() : sha1(comment);
 
 	if (comment != cu->qsComment) {
@@ -983,7 +981,7 @@ void UserModel::setComment(ClientUser *cu, const QString &comment) {
 				if (cu->uiSession == g.uiSession) {
 					QTimer::singleShot(0, g.mw, SLOT(on_qaSelfComment_triggered()));
 				} else {
-					g.mw->cuContextUser = cu;
+					g.mw->cuContextUser = boost::weak_ptr<ClientUser>(cu);
 					QTimer::singleShot(0, g.mw, SLOT(on_qaUserCommentView_triggered()));
 				}
 			} else {
@@ -1001,7 +999,7 @@ void UserModel::setComment(ClientUser *cu, const QString &comment) {
 	}
 }
 
-void UserModel::setCommentHash(ClientUser *cu, const QByteArray &hash) {
+void UserModel::setCommentHash(boost::shared_ptr<ClientUser> cu, const QByteArray &hash) {
 	if (hash != cu->qbaCommentHash) {
 		ModelItem *item = ModelItem::c_qhUsers.value(cu);
 		int oldstate = (cu->qsComment.isEmpty() && cu->qbaCommentHash.isEmpty()) ? 0 : (item->bCommentSeen ? 2 : 1);
@@ -1240,9 +1238,9 @@ void UserModel::removeAll() {
 	updateOverlay();
 }
 
-ClientUser *UserModel::getUser(const QModelIndex &idx) const {
+boost::shared_ptr<ClientUser> UserModel::getUser(const QModelIndex &idx) const {
 	if (! idx.isValid())
-		return NULL;
+		return ClientUserPtr();
 
 	ModelItem *item;
 	item = static_cast<ModelItem *>(idx.internalPointer());
@@ -1250,7 +1248,7 @@ ClientUser *UserModel::getUser(const QModelIndex &idx) const {
 	return item->pUser;
 }
 
-ClientUser *UserModel::getUser(const QString &hash) const {
+boost::shared_ptr<ClientUser> UserModel::getUser(const QString &hash) const {
 	return qmHashes.value(hash);
 }
 
@@ -1286,14 +1284,14 @@ void UserModel::userTalkingChanged() {
 	ClientUser *p=static_cast<ClientUser *>(sender());
 	if (!p)
 		return;
-	QModelIndex idx = index(p);
+	QModelIndex idx = index(ClientUser::get(p->uiSession));
 	emit dataChanged(idx, idx);
 	updateOverlay();
 }
 
 void UserModel::userMuteDeafChanged() {
 	ClientUser *p=static_cast<ClientUser *>(sender());
-	QModelIndex idx = index(p);
+	QModelIndex idx = index(ClientUser::get(p->uiSession));
 	emit dataChanged(idx, idx);
 
 	updateOverlay();
@@ -1315,7 +1313,7 @@ QMimeData *UserModel::mimeData(const QModelIndexList &idxs) const {
 	QDataStream ds(&qba, QIODevice::WriteOnly);
 
 	foreach(idx, idxs) {
-		ClientUser *p = getUser(idx);
+		ClientUserPtr p = getUser(idx);
 		Channel *c = getChannel(idx);
 		if (p) {
 			ds << false;

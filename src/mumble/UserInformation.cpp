@@ -107,7 +107,7 @@ void UserInformation::update(const MumbleProto::UserStats &msg) {
 
 	bool showcon = false;
 
-	ClientUser *cu = ClientUser::get(uiSession);
+	ClientUserPtr cu = ClientUser::get(uiSession);
 	if (cu)
 		setWindowTitle(cu->qsName);
 

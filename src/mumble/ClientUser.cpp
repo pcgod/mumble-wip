@@ -33,10 +33,10 @@
 #include "Global.h"
 #include "AudioOutput.h"
 
-QHash<unsigned int, ClientUser *> ClientUser::c_qmUsers;
+QHash<unsigned int, ClientUserPtr> ClientUser::c_qmUsers;
 QReadWriteLock ClientUser::c_qrwlUsers;
 
-QList<ClientUser *> ClientUser::c_qlTalking;
+QList<ClientUserPtr> ClientUser::c_qlTalking;
 QReadWriteLock ClientUser::c_qrwlTalking;
 
 ClientUser::ClientUser(QObject *p) : QObject(p),
@@ -50,33 +50,32 @@ ClientUser::ClientUser(QObject *p) : QObject(p),
 		tLastTalkStateChange(false) {
 }
 
-ClientUser *ClientUser::get(unsigned int uiSession) {
+ClientUserPtr ClientUser::get(unsigned int uiSession) {
 	QReadLocker lock(&c_qrwlUsers);
-	ClientUser *p = c_qmUsers.value(uiSession);
-	return p;
+	return c_qmUsers.value(uiSession);
 }
 
-ClientUser *ClientUser::getByHash(const QString &hash) {
+ClientUserPtr ClientUser::getByHash(const QString &hash) {
 	QReadLocker lock(&c_qrwlUsers);
 
-	ClientUser *cu;
+	ClientUserPtr cu;
 	foreach(cu, c_qmUsers) {
 		if (cu->qsHash == hash)
 			return cu;
 	}
 
-	return NULL;
+	return ClientUserPtr();
 }
 
-QList<ClientUser *> ClientUser::getTalking() {
+QList<ClientUserPtr> ClientUser::getTalking() {
 	QReadLocker lock(&c_qrwlTalking);
 	return c_qlTalking;
 }
 
-QList<ClientUser *> ClientUser::getActive() {
+QList<ClientUserPtr> ClientUser::getActive() {
 	QReadLocker lock(&c_qrwlUsers);
-	QList<ClientUser *> activeUsers;
-	foreach(ClientUser *cu, c_qmUsers) {
+	QList<ClientUserPtr> activeUsers;
+	foreach(ClientUserPtr cu, c_qmUsers) {
 		if (cu->isActive())
 			activeUsers << cu;
 	}
@@ -85,23 +84,23 @@ QList<ClientUser *> ClientUser::getActive() {
 
 bool ClientUser::isValid(unsigned int uiSession) {
 	QReadLocker lock(&c_qrwlUsers);
-
 	return c_qmUsers.contains(uiSession);
 }
 
-ClientUser *ClientUser::add(unsigned int uiSession, QObject *po) {
+ClientUserPtr ClientUser::add(unsigned int uiSession, QObject *po) {
 	QWriteLocker lock(&c_qrwlUsers);
 
-	ClientUser *p = new ClientUser(po);
+	ClientUserPtr p = boost::make_shared<ClientUser>(po);
 	p->uiSession = uiSession;
 	c_qmUsers[uiSession] = p;
+
 	return p;
 }
 
-ClientUser *ClientUser::match(const ClientUser *other, bool matchname) {
+ClientUserPtr ClientUser::match(const ClientUserPtr other, bool matchname) {
 	QReadLocker lock(&c_qrwlUsers);
 
-	ClientUser *p;
+	ClientUserPtr p;
 	foreach(p, c_qmUsers) {
 		if (p == other)
 			continue;
@@ -110,15 +109,15 @@ ClientUser *ClientUser::match(const ClientUser *other, bool matchname) {
 		if (matchname && (p->qsName == other->qsName))
 			return p;
 	}
-	return NULL;
+	return ClientUserPtr();
 }
 
 void ClientUser::remove(unsigned int uiSession) {
 	QWriteLocker lock(&c_qrwlUsers);
-	ClientUser *p = c_qmUsers.take(uiSession);
+	ClientUserPtr p = c_qmUsers.take(uiSession);
 	if (p) {
 		if (p->cChannel)
-			p->cChannel->removeUser(p);
+			p->cChannel->removeUser(p.get());
 
 		AudioOutputPtr ao = g.ao;
 		if (ao)
@@ -131,7 +130,7 @@ void ClientUser::remove(unsigned int uiSession) {
 	}
 }
 
-void ClientUser::remove(ClientUser *p) {
+void ClientUser::remove(const ClientUserPtr p) {
 	remove(p->uiSession);
 }
 
@@ -177,9 +176,9 @@ void ClientUser::setTalking(Settings::TalkState ts) {
 	if (nstate && cChannel) {
 		QWriteLocker lock(&c_qrwlTalking);
 		if (ts == Settings::Passive)
-			c_qlTalking.removeAll(this);
+			c_qlTalking.removeAll(shared_from_this());
 		else
-			c_qlTalking << this;
+			c_qlTalking << shared_from_this();
 	}
 }
 
@@ -241,7 +240,7 @@ void ClientUser::setRecording(bool recording) {
 	emit muteDeafChanged();
 }
 
-bool ClientUser::lessThanOverlay(const ClientUser *first, const ClientUser *second) {
+bool ClientUser::lessThanOverlay(const ClientUserPtr first, const ClientUserPtr second) {
 	if (g.s.os.osSort == OverlaySettings::LastStateChange) {
 		// Talkers above non-talkers
 		if (first->tsState != Settings::Passive && second->tsState == Settings::Passive)
@@ -276,7 +275,7 @@ bool ClientUser::lessThanOverlay(const ClientUser *first, const ClientUser *seco
 
 	// When sorting for the overlay always place the local users
 	// channel above the others
-	ClientUser *self = c_qmUsers.value(g.uiSession);
+	ClientUserPtr self = c_qmUsers.value(g.uiSession);
 	if (self) {
 		if (self->cChannel == first->cChannel)
 			return true;
@@ -287,7 +286,10 @@ bool ClientUser::lessThanOverlay(const ClientUser *first, const ClientUser *seco
 	return Channel::lessThan(first->cChannel, second->cChannel);
 }
 
-void ClientUser::sortUsersOverlay(QList<ClientUser *> &list) {
+bool ClientUser::lessThan(const ClientUserPtr first, const ClientUserPtr second) {
+	return User::lessThan(first.get(), second.get());
+}
+void ClientUser::sortUsersOverlay(QList<ClientUserPtr> &list) {
 	QReadLocker lock(&c_qrwlUsers);
 
 	qSort(list.begin(), list.end(), ClientUser::lessThanOverlay);
@@ -305,9 +307,13 @@ bool ClientUser::isActive() {
 
 /* From Channel.h
  */
-void Channel::addClientUser(ClientUser *p) {
-	addUser(p);
+void Channel::addClientUser(const ClientUserPtr p) {
+	addUser(p.get());
 	p->setParent(this);
+}
+
+uint qHash(const ClientUserPtr &key) {
+	return qHash(key.get());
 }
 
 QDataStream &operator<<(QDataStream &qds, const ClientUser::JitterRecord &jr) {

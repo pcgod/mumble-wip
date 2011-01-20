@@ -35,7 +35,11 @@
 #include "Timer.h"
 #include "Settings.h"
 
-class ClientUser : public QObject, public User {
+class ClientUser;
+
+typedef boost::shared_ptr<ClientUser> ClientUserPtr;
+
+class ClientUser : public QObject, public User, public boost::enable_shared_from_this<ClientUser> {
 	private:
 		Q_OBJECT
 		Q_DISABLE_COPY(ClientUser)
@@ -73,25 +77,26 @@ class ClientUser : public QObject, public User {
 		 */
 		bool isActive();
 
-		static QHash<unsigned int, ClientUser *> c_qmUsers;
+		static QHash<unsigned int, ClientUserPtr> c_qmUsers;
 		static QReadWriteLock c_qrwlUsers;
 
-		static QList<ClientUser *> c_qlTalking;
+		static QList<ClientUserPtr> c_qlTalking;
 		static QReadWriteLock c_qrwlTalking;
-		static QList<ClientUser *> getTalking();
-		static QList<ClientUser *> getActive();
+		static QList<ClientUserPtr> getTalking();
+		static QList<ClientUserPtr> getActive();
 
-		static void sortUsersOverlay(QList<ClientUser *> &list);
+		static void sortUsersOverlay(QList<ClientUserPtr> &list);
 
-		static ClientUser *get(unsigned int);
-		static ClientUser *getByHash(const QString &hash);
-		static bool isValid(unsigned int);
-		static ClientUser *add(unsigned int, QObject *p = NULL);
-		static ClientUser *match(const ClientUser *p, bool matchname = false);
-		static void remove(unsigned int);
-		static void remove(ClientUser *);
+		static ClientUserPtr get(unsigned int uiSession);
+		static ClientUserPtr getByHash(const QString &hash);
+		static bool isValid(unsigned int uiSession);
+		static ClientUserPtr add(unsigned int uiSession, QObject *p = NULL);
+		static ClientUserPtr match(ClientUserPtr p, bool matchname = false);
+		static void remove(unsigned int uiSession);
+		static void remove(const ClientUserPtr p);
+		static bool lessThan(const ClientUserPtr first, const ClientUserPtr second);
 	protected:
-		static bool lessThanOverlay(const ClientUser *, const ClientUser *);
+		static bool lessThanOverlay(const ClientUserPtr first, const ClientUserPtr second);
 	public slots:
 		void setTalking(Settings::TalkState ts);
 		void setMute(bool mute);
@@ -106,6 +111,8 @@ class ClientUser : public QObject, public User {
 		void talkingChanged();
 		void muteDeafChanged();
 };
+
+uint qHash(const ClientUserPtr &key);
 
 QDataStream &operator<<(QDataStream &, const ClientUser::JitterRecord &);
 

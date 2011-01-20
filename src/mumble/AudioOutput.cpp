@@ -514,8 +514,8 @@ bool AudioOutputSpeech::needSamples(unsigned int snum) {
 		if (! bLastAlive) {
 			memset(pOut, 0, iFrameSize * sizeof(float));
 		} else {
-			if (p == &LoopUser::lpLoopy) {
-				LoopUser::lpLoopy.fetchFrames();
+			if (p == LoopUser::lpLoopy) {
+				LoopUser::lpLoopy->fetchFrames();
 			}
 
 			int avail = 0;
@@ -588,7 +588,7 @@ bool AudioOutputSpeech::needSamples(unsigned int snum) {
 
 				if (umtType != MessageHandler::UDPVoiceSpeex) {
 					int wantversion = (umtType == MessageHandler::UDPVoiceCELTAlpha) ? g.iCodecAlpha : g.iCodecBeta;
-					if ((p == &LoopUser::lpLoopy) && (! g.qmCodecs.isEmpty())) {
+					if ((p == LoopUser::lpLoopy) && (! g.qmCodecs.isEmpty())) {
 						QMap<int, CELTCodec *>::const_iterator i = g.qmCodecs.constEnd();
 						--i;
 						wantversion = i.key();
@@ -794,14 +794,14 @@ AudioOutputSample *AudioOutput::playSample(const QString &filename, bool loop) {
 
 	qrwlOutputs.lockForWrite();
 	AudioOutputSample *aos = new AudioOutputSample(filename, handle, loop, iMixerFreq);
-	qmOutputs.insert(NULL, aos);
+	qmOutputs.insert(ClientUserPtr(), aos);
 	qrwlOutputs.unlock();
 
 	return aos;
 
 }
 
-void AudioOutput::addFrameToBuffer(ClientUser *user, const QByteArray &qbaPacket, unsigned int iSeq, MessageHandler::UDPMessageType type) {
+void AudioOutput::addFrameToBuffer(boost::shared_ptr<ClientUser> user, const QByteArray &qbaPacket, unsigned int iSeq, MessageHandler::UDPMessageType type) {
 	if (iChannels == 0)
 		return;
 	qrwlOutputs.lockForRead();
@@ -832,13 +832,13 @@ void AudioOutput::addFrameToBuffer(ClientUser *user, const QByteArray &qbaPacket
 	qrwlOutputs.unlock();
 }
 
-void AudioOutput::removeBuffer(const ClientUser *user) {
+void AudioOutput::removeBuffer(const boost::shared_ptr<ClientUser> user) {
 	removeBuffer(qmOutputs.value(user));
 }
 
 void AudioOutput::removeBuffer(AudioOutputUser *aop) {
 	QWriteLocker locker(&qrwlOutputs);
-	QMultiHash<const ClientUser *, AudioOutputUser *>::iterator i;
+	QMultiHash<const ClientUserPtr, AudioOutputUser *>::iterator i;
 	for (i=qmOutputs.begin(); i != qmOutputs.end(); ++i) {
 		if (i.value() == aop) {
 			qmOutputs.erase(i);
@@ -982,7 +982,7 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 
 	qrwlOutputs.lockForRead();
 	bool needAdjustment = false;
-	QMultiHash<const ClientUser *, AudioOutputUser *>::const_iterator i = qmOutputs.constBegin();
+	QMultiHash<const ClientUserPtr, AudioOutputUser *>::const_iterator i = qmOutputs.constBegin();
 	while (i != qmOutputs.constEnd()) {
 		AudioOutputUser *aop = i.value();
 		if (! aop->needSamples(nsamp)) {
@@ -1115,7 +1115,7 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 					}
 
 					// Don't add the local audio to the real output
-					if (qobject_cast<RecordUser *>(aos->p)) {
+					if (qobject_cast<RecordUser *>(aos->p.get())) {
 						continue;
 					}
 				}
@@ -1163,7 +1163,7 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 		}
 
 		if (recorder && recorder->getMixDown()) {
-			recorder->addBuffer(NULL, recbuff, nsamp);
+			recorder->addBuffer(ClientUserPtr(), recbuff, nsamp);
 		}
 
 		// Clip

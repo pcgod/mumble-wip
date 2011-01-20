@@ -39,7 +39,7 @@
 
 #include "../Timer.h"
 
-VoiceRecorder::RecordBuffer::RecordBuffer(const ClientUser *cu,
+VoiceRecorder::RecordBuffer::RecordBuffer(const boost::shared_ptr<ClientUser> cu,
         boost::shared_array<float> buffer, int samples, quint64 timestamp) :
 		cuUser(cu), fBuffer(buffer), iSamples(samples), uiTimestamp(timestamp) {
 }
@@ -336,7 +336,7 @@ void VoiceRecorder::stop() {
 	qwcSleep.wakeAll();
 }
 
-void VoiceRecorder::addBuffer(const ClientUser *cu, boost::shared_array<float> buffer, int samples) {
+void VoiceRecorder::addBuffer(const boost::shared_ptr<ClientUser> cu, boost::shared_array<float> buffer, int samples) {
 	Q_ASSERT(!bMixDown || cu == NULL);
 
 	// Create a new RecordInfo object if this is a new user.

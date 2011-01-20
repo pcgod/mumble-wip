@@ -321,7 +321,7 @@ ShortcutTargetDialog::ShortcutTargetDialog(const ShortcutTarget &st, QWidget *pw
 		QMap<QString, QString>::const_iterator i;
 
 		QReadLocker lock(& ClientUser::c_qrwlUsers);
-		foreach(ClientUser *p, ClientUser::c_qmUsers) {
+		foreach(ClientUserPtr p, ClientUser::c_qmUsers) {
 			if ((p->uiSession != g.uiSession) && p->qsFriendName.isEmpty() && ! p->qsHash.isEmpty()) {
 				others.insert(p->qsName, p->qsHash);
 				qmHashNames.insert(p->qsHash, p->qsName);
@@ -472,7 +472,7 @@ QString ShortcutTargetWidget::targetString(const ShortcutTarget &st) {
 			QMap<QString, QString> hashes;
 
 			QReadLocker lock(& ClientUser::c_qrwlUsers);
-			foreach(ClientUser *p, ClientUser::c_qmUsers) {
+			foreach(ClientUserPtr p, ClientUser::c_qmUsers) {
 				if (! p->qsHash.isEmpty()) {
 					hashes.insert(p->qsHash, p->qsName);
 				}

@@ -76,7 +76,7 @@ class Channel : public QObject {
 		static Channel *add(int, const QString &);
 		static void remove(Channel *);
 
-		void addClientUser(ClientUser *p);
+		void addClientUser(const boost::shared_ptr<ClientUser> p);
 #endif
 		static bool lessThan(const Channel *, const Channel *);
 

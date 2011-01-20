@@ -204,9 +204,12 @@ unsigned int ChatbarTextEdit::completeAtCursor() {
 	unsigned int id = 0;
 
 	QList<QString> qlsUsernames;
+	QReadLocker rl(&ClientUser::c_qrwlUsers);
 
-	if (ClientUser::c_qmUsers.empty()) return id;
-	foreach(ClientUser *usr, ClientUser::c_qmUsers) {
+	if (ClientUser::c_qmUsers.empty())
+		return id;
+
+	foreach(ClientUserPtr usr, ClientUser::c_qmUsers) {
 		qlsUsernames.append(usr->qsName);
 	}
 	qSort(qlsUsernames);
@@ -256,7 +259,7 @@ unsigned int ChatbarTextEdit::completeAtCursor() {
 	if (!target.isEmpty()) {
 		setTextCursor(tc);
 
-		foreach(ClientUser *usr, ClientUser::c_qmUsers) {
+		foreach(ClientUserPtr usr, ClientUser::c_qmUsers) {
 			if (usr->qsName == target) {
 				id = usr->uiSession;
 				break;

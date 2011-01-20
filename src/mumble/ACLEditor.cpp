@@ -139,10 +139,13 @@ ACLEditor::ACLEditor(int channelid, const MumbleProto::ACL &mea, QWidget *p) : Q
 	connect(qcbGroupAdd->lineEdit(), SIGNAL(returnPressed()), qpbGroupAddAdd, SLOT(animateClick()));
 	connect(qcbGroupRemove->lineEdit(), SIGNAL(returnPressed()), qpbGroupRemoveAdd, SLOT(animateClick()));
 
-	foreach(User *u, ClientUser::c_qmUsers) {
-		if (u->iId >= 0) {
-			qhNameCache.insert(u->iId, u->qsName);
-			qhIDCache.insert(u->qsName.toLower(), u->iId);
+	{
+		QReadLocker rl(&ClientUser::c_qrwlUsers);
+		foreach(ClientUserPtr u, ClientUser::c_qmUsers) {
+			if (u->iId >= 0) {
+				qhNameCache.insert(u->iId, u->qsName);
+				qhIDCache.insert(u->qsName.toLower(), u->iId);
+			}
 		}
 	}
 

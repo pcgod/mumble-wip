@@ -196,7 +196,7 @@ void ServerHandler::udpReady() {
 void ServerHandler::handleVoicePacket(unsigned int msgFlags, PacketDataStream &pds, MessageHandler::UDPMessageType type) {
 	unsigned int uiSession;
 	pds >> uiSession;
-	ClientUser *p = ClientUser::get(uiSession);
+	ClientUserPtr p = ClientUser::get(uiSession);
 	AudioOutputPtr ao = g.ao;
 	if (ao && p && ! p->bLocalMute && !(((msgFlags & 0x1f) == 2) && g.s.bWhisperFriends && p->qsFriendName.isEmpty())) {
 		unsigned int iSeq;

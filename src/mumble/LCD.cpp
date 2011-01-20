@@ -257,7 +257,7 @@ void LCD::updateUserView() {
 		return;
 
 	QStringList qslTalking;
-	User *me = g.uiSession ? ClientUser::get(g.uiSession) : NULL;
+	ClientUserPtr me = g.uiSession ? ClientUser::get(g.uiSession) : ClientUserPtr();
 	Channel *home = me ? me->cChannel : NULL;
 	bool alert = false;
 
@@ -289,7 +289,7 @@ void LCD::updateUserView() {
 		}
 
 		foreach(unsigned int session, qmNew.keys()) {
-			User *p = ClientUser::get(session);
+			ClientUserPtr p = ClientUser::get(session);
 			if (!p || (p->cChannel != me->cChannel)) {
 				qmNew.remove(session);
 				qmOld.insert(session, Timer());
