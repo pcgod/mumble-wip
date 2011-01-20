@@ -147,7 +147,7 @@ class AudioOutputSpeech : public AudioOutputUser {
 		virtual bool needSamples(unsigned int snum);
 
 		void addFrameToBuffer(const QByteArray &, unsigned int iBaseSeq);
-		AudioOutputSpeech(ClientUser *, unsigned int freq, MessageHandler::UDPMessageType type);
+		AudioOutputSpeech(boost::shared_ptr<ClientUser> user, MessageHandler::UDPMessageType type);
 		~AudioOutputSpeech();
 };
 
@@ -212,19 +212,21 @@ class AudioOutput : public QThread {
 		float *fSpeakers;
 		float *fSpeakerVolume;
 		bool *bSpeakerPositional;
+		volatile unsigned int iMixerFreq;
 	protected:
 		enum { SampleShort, SampleFloat } eSampleFormat;
 		volatile bool bRunning;
 		unsigned int iFrameSize;
-		volatile unsigned int iMixerFreq;
 		unsigned int iChannels;
 		unsigned int iSampleSize;
 		QReadWriteLock qrwlOutputs;
 		QMultiHash<const boost::shared_ptr<ClientUser>, AudioOutputUser *> qmOutputs;
+		SpeexResamplerState *srs;
 
 		virtual void removeBuffer(AudioOutputUser *);
 		void initializeMixer(const unsigned int *chanmasks, bool forceheadphone = false);
 		bool mix(void *output, unsigned int nsamp);
+		void setMixerFreq(unsigned int frequency);
 	public:
 		void wipe();
 

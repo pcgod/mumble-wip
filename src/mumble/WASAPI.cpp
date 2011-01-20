@@ -868,11 +868,6 @@ void WASAPIOutput::run() {
 	pAudioClient->GetBufferSize(&bufferFrameCount);
 	qWarning("WASAPIOutput: Stream Latency %lld (%d)", latency, bufferFrameCount);
 
-	iMixerFreq = pwfx->nSamplesPerSec;
-
-	qWarning("WASAPIOutput: Periods %lldus %lldus (latency %lldus)", def / 10LL, min / 10LL, latency / 10LL);
-	qWarning("WASAPIOutput: Buffer is %dus (%d)", (bufferFrameCount * 1000000) / iMixerFreq, g.s.iOutputDelay);
-
 	hr = pAudioClient->GetService(__uuidof(IAudioRenderClient), (void**)&pRenderClient);
 	if (FAILED(hr)) {
 		qWarning("WASAPIOutput: GetService failed: hr=0x%08lx", hr);
@@ -903,6 +898,11 @@ void WASAPIOutput::run() {
 	}
 
 	iChannels = pwfx->nChannels;
+	setMixerFreq(pwfx->nSamplesPerSec);
+
+	qWarning("WASAPIOutput: Periods %lldus %lldus (latency %lldus)", def / 10LL, min / 10LL, latency / 10LL);
+	qWarning("WASAPIOutput: Buffer is %dus (%d)", (bufferFrameCount * 1000000) / getMixerFreq(), g.s.iOutputDelay);
+
 	initializeMixer(chanmasks);
 
 	bool mixed = false;

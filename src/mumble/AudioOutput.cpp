@@ -373,7 +373,7 @@ bool AudioOutputSample::needSamples(unsigned int snum) {
 	return !eof;
 }
 
-AudioOutputSpeech::AudioOutputSpeech(ClientUser *user, unsigned int freq, MessageHandler::UDPMessageType type) : AudioOutputUser(user->qsName) {
+AudioOutputSpeech::AudioOutputSpeech(boost::shared_ptr<ClientUser> user, MessageHandler::UDPMessageType type) : AudioOutputUser(user->qsName) {
 	int err;
 	p = user;
 	umtType = type;
@@ -398,12 +398,12 @@ AudioOutputSpeech::AudioOutputSpeech(ClientUser *user, unsigned int freq, Messag
 		speex_decoder_ctl(dsSpeex, SPEEX_GET_SAMPLING_RATE, &srate);
 	}
 
-	if (freq != srate)
-		srs = speex_resampler_init(1, srate, freq, 3, &err);
+	if (srate != SAMPLE_RATE)
+		srs = speex_resampler_init(1, srate, SAMPLE_RATE, 3, &err);
 	else
 		srs = NULL;
 
-	iOutputSize = static_cast<unsigned int>(ceilf(static_cast<float>(iFrameSize * freq) / static_cast<float>(srate)));
+	iOutputSize = static_cast<unsigned int>(ceilf(static_cast<float>(iFrameSize * SAMPLE_RATE) / static_cast<float>(SAMPLE_RATE)));
 
 	iBufferOffset = iBufferFilled = iLastConsume = 0;
 	bLastAlive = true;
@@ -716,12 +716,17 @@ AudioOutput::AudioOutput() {
 	iMixerFreq = 0;
 	eSampleFormat = SampleFloat;
 	iSampleSize = 0;
+
+	srs = NULL;
 }
 
 AudioOutput::~AudioOutput() {
 	bRunning = false;
 	wait();
 	wipe();
+
+	if (srs)
+		speex_resampler_destroy(srs);
 
 	delete [] fSpeakers;
 	delete [] fSpeakerVolume;
@@ -823,7 +828,7 @@ void AudioOutput::addFrameToBuffer(boost::shared_ptr<ClientUser> user, const QBy
 			return;
 
 		qrwlOutputs.lockForWrite();
-		aop = new AudioOutputSpeech(user, iMixerFreq, type);
+		aop = new AudioOutputSpeech(user, type);
 		qmOutputs.replace(user, aop);
 	}
 
@@ -972,6 +977,8 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 	if (g.s.fVolume < 0.01)
 		return false;
 
+	unsigned int outsamples = nsamp;
+	nsamp = static_cast<unsigned int>(ceilf(SAMPLE_RATE * (nsamp / static_cast<float>(iMixerFreq))));
 	const float adjustFactor = std::pow(10, -18. / 20);
 	const float mul = g.s.fVolume;
 	const unsigned int nchan = iChannels;
@@ -1001,7 +1008,7 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 		STACKVAR(float, svol, iChannels);
 
 		STACKVAR(float, fOutput, iChannels * nsamp);
-		float *output = (eSampleFormat == SampleFloat) ? reinterpret_cast<float *>(outbuff) : fOutput;
+		float *output = (eSampleFormat == SampleFloat && !srs) ? reinterpret_cast<float *>(outbuff) : fOutput;
 		bool validListener = false;
 
 		memset(output, 0, sizeof(float) * nsamp * iChannels);
@@ -1166,6 +1173,15 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 			recorder->addBuffer(ClientUserPtr(), recbuff, nsamp);
 		}
 
+		if (srs) {
+			float *tmpOut = output;
+			output = (eSampleFormat == SampleFloat) ? reinterpret_cast<float *>(outbuff) : output;
+			spx_uint32_t inlen = nsamp;
+			spx_uint32_t outlen = outsamples;
+			speex_resampler_process_interleaved_float(srs, tmpOut, &inlen, output, &outlen);
+			nsamp = outsamples;
+		}
+
 		// Clip
 		if (eSampleFormat == SampleFloat)
 			for (unsigned int i=0;i<nsamp*iChannels;i++)
@@ -1185,6 +1201,23 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 
 bool AudioOutput::isAlive() const {
 	return isRunning();
+}
+
+void AudioOutput::setMixerFreq(unsigned int frequency) {
+	Q_ASSERT(iChannels != 0);
+
+	SpeexResamplerState *old_srs = NULL;
+	if (frequency != iMixerFreq && frequency != SAMPLE_RATE) {
+		int err;
+		old_srs = srs;
+		srs = speex_resampler_init(iChannels, SAMPLE_RATE, frequency, 3, &err);
+	} else {
+		old_srs = srs;
+		srs = NULL;
+	}
+	if (old_srs)
+		speex_resampler_destroy(old_srs);
+	iMixerFreq = frequency;
 }
 
 unsigned int AudioOutput::getMixerFreq() const {

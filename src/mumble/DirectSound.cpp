@@ -315,8 +315,8 @@ void DXAudioOutput::run() {
 		}
 	}
 
-	iMixerFreq = SAMPLE_RATE;
 	iChannels = ns;
+	setMixerFreq(SAMPLE_RATE);
 	eSampleFormat = SampleShort;
 
 	iByteSize = iFrameSize * sizeof(short) * ns;

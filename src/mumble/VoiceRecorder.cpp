@@ -360,7 +360,7 @@ void VoiceRecorder::addBuffer(const boost::shared_ptr<ClientUser> cu, boost::sha
 void VoiceRecorder::setSampleRate(int sampleRate) {
 	Q_ASSERT(!bRecording);
 
-	iSampleRate = sampleRate;
+	iSampleRate = 48000;
 }
 
 int VoiceRecorder::getSampleRate() const {
