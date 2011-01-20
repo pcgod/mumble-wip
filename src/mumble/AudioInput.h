@@ -85,6 +85,7 @@ class AudioInput : public QThread {
 		void resetAudioProcessor();
 		int encodeSpeexFrame(short *pSource, unsigned char *buffer);
 		int encodeCELTFrame(short *pSource, unsigned char *buffer);
+		bool canSpeak();
 	protected:
 		MessageHandler::UDPMessageType umtType;
 		SampleFormat eMicFormat, eEchoFormat;

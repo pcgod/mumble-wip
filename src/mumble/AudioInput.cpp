@@ -620,8 +620,8 @@ void AudioInput::resetAudioProcessor() {
 	iArg = iroundf(floorf(20.0f * log10f(v)));
 	speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &iArg);
 
-	iArg = -60;
-	speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_SET_AGC_DECREMENT, &iArg);
+	//iArg = -60;
+	//speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_SET_AGC_DECREMENT, &iArg);
 
 	iArg = g.s.iNoiseSuppress;
 	speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &iArg);
@@ -692,8 +692,8 @@ int AudioInput::encodeCELTFrame(short *psSource, unsigned char *buffer) {
 
 	cCodec->celt_encoder_ctl(ceEncoder, CELT_SET_PREDICTION(0));
 
-	cCodec->celt_encoder_ctl(ceEncoder, CELT_SET_VBR_RATE(iAudioQuality));
-	int len = cCodec->encode(ceEncoder, psSource, buffer, qMin(iAudioQuality / (8 * 100), 127));
+	cCodec->celt_encoder_ctl(ceEncoder,CELT_SET_VBR_RATE(iAudioQuality));
+	int len = cCodec->encode(ceEncoder, psSource, buffer, qMin(iAudioQuality / 800, 127));
 	iBitrate = len * 100 * 8;
 
 	return len;
@@ -718,95 +718,99 @@ int AudioInput::encodeSpeexFrame(short *psSource, unsigned char *buffer) {
 	return len;
 }
 
+bool AudioInput::canSpeak() {
+	ClientUserPtr p = ClientUser::get(g.uiSession);
+
+	return !(g.s.bMute || ((g.s.lmLoopMode != Settings::Local) && p && (p->bMute || p->bSuppress)) || g.bPushToMute || (g.iTarget < 0));
+}
+
 void AudioInput::encodeAudioFrame() {
-	int iArg;
-	ClientUser *p=ClientUser::get(g.uiSession);
-	int i;
-	float sum;
-	short max;
-
-	short *psSource;
-
 	iFrameCounter++;
 
 	if (! bRunning)
 		return;
 
-	sum=1.0f;
-	for (i=0;i<iFrameSize;i++)
-		sum += static_cast<float>(psMic[i] * psMic[i]);
-	dPeakMic = qMax(20.0f*log10f(sqrtf(sum / static_cast<float>(iFrameSize)) / 32768.0f), -96.0f);
-
-	max = 1;
-	for (i=0;i<iFrameSize;i++)
-		max = static_cast<short>(abs(psMic[i]) > max ? abs(psMic[i]) : max);
-	dMaxMic = max;
-
-	if (psSpeaker && (iEchoChannels > 0)) {
-		sum=1.0f;
-		for (i=0;i<iFrameSize;i++)
-			sum += static_cast<float>(psSpeaker[i] * psSpeaker[i]);
-		dPeakSpeaker = qMax(20.0f*log10f(sqrtf(sum / static_cast<float>(iFrameSize)) / 32768.0f), -96.0f);
-	} else {
-		dPeakSpeaker = 0.0;
-	}
-
 	QMutexLocker l(&qmSpeex);
+
 	resetAudioProcessor();
 
+	bool bIsSpeech = false;
+
+	if (g.s.atTransmit == Settings::Continous) {
+		bIsSpeech = true;
+	} else if (g.s.atTransmit == Settings::PushToTalk) {
+		bIsSpeech = g.s.uiDoublePush && ((g.uiDoublePush < g.s.uiDoublePush) || (g.tDoublePush.elapsed() < g.s.uiDoublePush));
+	}
+
+	bIsSpeech = bIsSpeech || (g.iPushToTalk > 0);
+
+	int iArg;
 	speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_GET_AGC_GAIN, &iArg);
 	float gainValue = static_cast<float>(iArg);
 	iArg = g.s.iNoiseSuppress - iArg;
 	speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &iArg);
 
+	short *psSource = psMic;
 	if (sesEcho && psSpeaker) {
 		speex_echo_cancellation(sesEcho, psMic, psSpeaker, psClean);
-		speex_preprocess_run(sppPreprocess, psClean);
 		psSource = psClean;
-	} else {
-		speex_preprocess_run(sppPreprocess, psMic);
-		psSource = psMic;
 	}
 
-	sum=1.0f;
-	for (i=0;i<iFrameSize;i++)
-		sum += static_cast<float>(psSource[i] * psSource[i]);
-	float micLevel = sqrtf(sum / static_cast<float>(iFrameSize));
-	dPeakSignal = qMax(20.0f*log10f(micLevel / 32768.0f), -96.0f);
-
-	spx_int32_t prob = 0;
-	speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_GET_PROB, &prob);
-	fSpeechProb = static_cast<float>(prob) / 100.0f;
-
-	// clean microphone level: peak of filtered signal attenuated by AGC gain
-	dPeakCleanMic = qMax(dPeakSignal - gainValue, -96.0f);
-	float level = (g.s.vsVAD == Settings::SignalToNoise) ? fSpeechProb : (1.0f + dPeakCleanMic / 96.0f);
-
-	bool bIsSpeech = false;
-
-	if (level > g.s.fVADmax)
-		bIsSpeech = true;
-	else if (level > g.s.fVADmin && bPreviousVoice)
-		bIsSpeech = true;
-
-	if (! bIsSpeech) {
-		iHoldFrames++;
-		if (iHoldFrames < g.s.iVoiceHold)
-			bIsSpeech = true;
+	if (!canSpeak() || (!bIsSpeech && g.s.atTransmit != Settings::VAD)) {
+		speex_preprocess_estimate_update(sppPreprocess, psSource);
+		fSpeechProb = 0.0f;
 	} else {
-		iHoldFrames = 0;
+		speex_preprocess_run(sppPreprocess, psSource);
+
+		spx_int32_t prob = 0;
+		speex_preprocess_ctl(sppPreprocess, SPEEX_PREPROCESS_GET_PROB, &prob);
+		fSpeechProb = static_cast<float>(prob) / 100.0f;
+
+		// clean microphone level: peak of filtered signal attenuated by AGC gain
+		dPeakCleanMic = qMax(dPeakSignal - gainValue, -96.0f);
+
+		if (!bIsSpeech && g.s.atTransmit == Settings::VAD) {
+			float level = (g.s.vsVAD == Settings::SignalToNoise) ? fSpeechProb : (1.0f + dPeakCleanMic / 96.0f);
+			if (level > g.s.fVADmax)
+				bIsSpeech = true;
+			else if (level > g.s.fVADmin && bPreviousVoice)
+				bIsSpeech = true;
+
+			if (! bIsSpeech) {
+				iHoldFrames++;
+				if (iHoldFrames < g.s.iVoiceHold)
+					bIsSpeech = true;
+			} else {
+				iHoldFrames = 0;
+			}
+		}
 	}
 
-	if (g.s.atTransmit == Settings::Continous)
-		bIsSpeech = true;
-	else if (g.s.atTransmit == Settings::PushToTalk)
-		bIsSpeech = g.s.uiDoublePush && ((g.uiDoublePush < g.s.uiDoublePush) || (g.tDoublePush.elapsed() < g.s.uiDoublePush));
-
-	bIsSpeech = bIsSpeech || (g.iPushToTalk > 0);
-
-	if (g.s.bMute || ((g.s.lmLoopMode != Settings::Local) && p && (p->bMute || p->bSuppress)) || g.bPushToMute || (g.iTarget < 0)) {
+	if (!canSpeak())
 		bIsSpeech = false;
+
+	dPeakSpeaker = 0.0f;
+	if (psSpeaker && (iEchoChannels > 0)) {
+		float sum = 1.0f;
+		for (int i = 0; i < iFrameSize; ++i)
+			sum += static_cast<float>(psSpeaker[i] * psSpeaker[i]);
+		dPeakSpeaker = qMax(20.0f * log10f(sqrtf(sum / static_cast<float>(iFrameSize)) / 32768.0f), -96.0f);
 	}
+
+	float sum, sum2;
+	short max = 1;
+	sum = sum2 = 1.0f;
+	for (int i = 0; i < iFrameSize; ++i) {
+		sum += static_cast<float>(psMic[i] * psMic[i]);
+		sum2 += static_cast<float>(psSource[i] * psSource[i]);
+		max = static_cast<short>(abs(psMic[i]) > max ? abs(psMic[i]) : max);
+	}
+
+	float micLevel = sqrtf(sum2 / static_cast<float>(iFrameSize));
+	dPeakSignal = qMax(20.0f * log10f(micLevel / 32768.0f), -96.0f);
+
+	dPeakMic = qMax(20.0f * log10f(sqrtf(sum / static_cast<float>(iFrameSize)) / 32768.0f), -96.0f);
+	dMaxMic = max;
 
 	if (bIsSpeech) {
 		iSilentFrames = 0;
@@ -816,6 +820,7 @@ void AudioInput::encodeAudioFrame() {
 			iFrameCounter = 0;
 	}
 
+	boost::shared_ptr<ClientUser> p = ClientUser::get(g.uiSession);
 	if (p) {
 		if (! bIsSpeech)
 			p->setTalking(Settings::Passive);
