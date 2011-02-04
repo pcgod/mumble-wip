@@ -452,10 +452,10 @@ int main(int argc, char **argv) {
 
 	g.s.save();
 
-	ServerHandlerPtr sh = g.sh;
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 
 	if (sh && sh->isRunning())
-		Database::setShortcuts(g.sh->qbaDigest, g.s.qlShortcuts);
+		Database::setShortcuts(sh->qbaDigest, g.s.qlShortcuts);
 
 	Audio::stop();
 

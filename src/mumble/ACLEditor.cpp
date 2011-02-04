@@ -238,6 +238,7 @@ void ACLEditor::showEvent(QShowEvent *evt) {
 }
 
 void ACLEditor::accept() {
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 	Channel *pChannel = Channel::get(iChannel);
 	if (pChannel == NULL) {
 		// Channel gone while editing
@@ -247,7 +248,7 @@ void ACLEditor::accept() {
 	}
 	// Update channel state
 	if (bAddChannelMode) {
-		g.sh->createChannel(iChannel, qleChannelName->text(), rteChannelDescription->text(), qsbChannelPosition->value(), qcbChannelTemporary->isChecked());
+		sh->createChannel(iChannel, qleChannelName->text(), rteChannelDescription->text(), qsbChannelPosition->value(), qcbChannelTemporary->isChecked());
 	} else {
 		bool b = false;
 
@@ -270,7 +271,7 @@ void ACLEditor::accept() {
 			b = true;
 		}
 		if (b)
-			g.sh->sendMessage(mpcs);
+			sh->sendMessage(mpcs);
 
 		// Update ACL
 		msg.set_inherit_acls(bInheritACL);
@@ -305,7 +306,7 @@ void ACLEditor::accept() {
 				if (pid >= 0)
 					mpg->add_remove(pid);
 		}
-		g.sh->sendMessage(msg);
+		sh->sendMessage(msg);
 	}
 	QDialog::accept();
 }
@@ -324,9 +325,10 @@ int ACLEditor::id(const QString &uname) {
 		return qhIDCache.value(name);
 	} else {
 		if (! qhNameWait.contains(name)) {
+			ServerHandlerPtr sh = g.getCurrentServerHandler();
 			MumbleProto::QueryUsers mpuq;
 			mpuq.add_names(u8(name));
-			g.sh->sendMessage(mpuq);
+			sh->sendMessage(mpuq);
 
 			iUnknown--;
 			qhNameWait.insert(name, iUnknown);

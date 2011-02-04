@@ -311,12 +311,13 @@ void Overlay::updateOverlay() {
 	}
 
 	if (! qsQuery.isEmpty()) {
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
 		MumbleProto::RequestBlob mprb;
 		foreach(unsigned int session, qsQuery) {
 			qsQueried.insert(session);
 			mprb.add_session_texture(session);
 		}
-		g.sh->sendMessage(mprb);
+		sh->sendMessage(mprb);
 	}
 }
 

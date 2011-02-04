@@ -91,8 +91,9 @@ VoiceRecorderDialog::~VoiceRecorderDialog() {
 }
 
 void VoiceRecorderDialog::closeEvent(QCloseEvent *evt) {
-	if (g.sh) {
-		VoiceRecorderPtr recorder(g.sh->recorder);
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	if (sh) {
+		VoiceRecorderPtr recorder(sh->recorder);
 		if (recorder && recorder->isRunning()) {
 			int ret = QMessageBox::warning(this,
 			                               tr("Recorder"),
@@ -126,7 +127,8 @@ void VoiceRecorderDialog::closeEvent(QCloseEvent *evt) {
 }
 
 void VoiceRecorderDialog::on_qpbStart_clicked() {
-	if (!g.uiSession || !g.sh) {
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	if (!g.uiSession || !sh) {
 		QMessageBox::critical(this,
 		                      tr("Recorder"),
 		                      tr("Unable to start recording. Not connected to a server."));
@@ -134,7 +136,7 @@ void VoiceRecorderDialog::on_qpbStart_clicked() {
 		return;
 	}
 
-	if (g.sh->uiVersion < 0x010203) {
+	if (sh->uiVersion < 0x010203) {
 		QMessageBox::critical(this,
 		                      tr("Recorder"),
 		                      tr("The server you are currently connected to is version 1.2.2 or older. "
@@ -144,7 +146,7 @@ void VoiceRecorderDialog::on_qpbStart_clicked() {
 		return;
 	}
 
-	if (g.sh->recorder) {
+	if (sh->recorder) {
 		QMessageBox::information(this,
 		                         tr("Recorder"),
 		                         tr("There is already a recorder active for this server."));
@@ -186,16 +188,16 @@ void VoiceRecorderDialog::on_qpbStart_clicked() {
 	if (!ao)
 		return;
 
-	g.sh->announceRecordingState(true);
+	sh->announceRecordingState(true);
 
 	// Create the recorder
-	g.sh->recorder.reset(new VoiceRecorder(this));
-	VoiceRecorderPtr recorder(g.sh->recorder);
+	sh->recorder.reset(new VoiceRecorder(this));
+	VoiceRecorderPtr recorder(sh->recorder);
 
 	// Wire it up
-	connect(&*recorder, SIGNAL(recording_started()), this, SLOT(onRecorderStarted()));
-	connect(&*recorder, SIGNAL(recording_stopped()), this, SLOT(onRecorderStopped()));
-	connect(&*recorder, SIGNAL(error(int, QString)), this, SLOT(onRecorderError(int, QString)));
+	connect(recorder.get(), SIGNAL(recording_started()), this, SLOT(onRecorderStarted()));
+	connect(recorder.get(), SIGNAL(recording_stopped()), this, SLOT(onRecorderStopped()));
+	connect(recorder.get(), SIGNAL(error(int, QString)), this, SLOT(onRecorderError(int, QString)));
 
 	// Configure it
 	recorder->setSampleRate(ao->getMixerFreq());
@@ -212,12 +214,13 @@ void VoiceRecorderDialog::on_qpbStart_clicked() {
 }
 
 void VoiceRecorderDialog::on_qpbStop_clicked() {
-	if (!g.sh) {
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	if (!sh) {
 		reset();
 		return;
 	}
 
-	VoiceRecorderPtr recorder(g.sh->recorder);
+	VoiceRecorderPtr recorder(sh->recorder);
 	if (!recorder) {
 		reset();
 		return;
@@ -227,7 +230,8 @@ void VoiceRecorderDialog::on_qpbStop_clicked() {
 }
 
 void VoiceRecorderDialog::on_qtTimer_timeout() {
-	if (!g.sh) {
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	if (!sh) {
 		reset();
 		return;
 	}
@@ -237,8 +241,8 @@ void VoiceRecorderDialog::on_qtTimer_timeout() {
 		return;
 	}
 
-	VoiceRecorderPtr recorder(g.sh->recorder);
-	if (!g.sh->recorder) {
+	VoiceRecorderPtr recorder(sh->recorder);
+	if (!recorder) {
 		reset();
 		return;
 	}
@@ -261,11 +265,12 @@ void VoiceRecorderDialog::on_qpbTargetDirectoryBrowse_clicked() {
 void VoiceRecorderDialog::reset(bool resettimer) {
 	qtTimer->stop();
 
-	if (g.sh) {
-		VoiceRecorderPtr recorder(g.sh->recorder);
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	if (sh) {
+		VoiceRecorderPtr recorder(sh->recorder);
 		if (recorder) {
-			g.sh->recorder.reset();
-			g.sh->announceRecordingState(false);
+			sh->recorder.reset();
+			sh->announceRecordingState(false);
 		}
 	}
 

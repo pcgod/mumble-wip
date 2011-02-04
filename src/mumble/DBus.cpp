@@ -51,7 +51,8 @@ void MumbleDBus::openUrl(const QString &url, const QDBusMessage &msg) {
 }
 
 void MumbleDBus::getCurrentUrl(const QDBusMessage &msg) {
-	if (!g.sh || !g.sh->isRunning() || ! g.uiSession) {
+	ServerHandlerPtr sh(g.sh);
+	if (!sh || !sh->isRunning() || ! g.uiSession) {
 		QDBusConnection::sessionBus().send(msg.createErrorReply(QLatin1String("net.sourceforge.mumble.Error.connection"), QLatin1String("Not connected")));
 		return;
 	}

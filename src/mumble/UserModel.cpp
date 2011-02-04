@@ -198,10 +198,11 @@ QString ModelItem::hash() const {
 
 		chash.addData(cChan->qsName.toUtf8());
 		chash.addData(QString::number(cChan->iId).toUtf8());
-		if (g.sh && g.sh->isRunning()) {
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
+		if (sh && sh->isRunning()) {
 			QString host, user, pw;
 			unsigned short port;
-			g.sh->getConnectionInfo(host, port, user, pw);
+			sh->getConnectionInfo(host, port, user, pw);
 			chash.addData(host.toUtf8());
 			chash.addData(QString::number(port).toUtf8());
 		}
@@ -455,13 +456,15 @@ QVariant UserModel::data(const QModelIndex &idx, int role) const {
 					}
 				}
 				break;
-			case Qt::BackgroundRole:
-				if ((c->iId == 0) && g.sh && g.sh->isStrong()) {
+			case Qt::BackgroundRole: {
+				ServerHandlerPtr sh = g.getCurrentServerHandler();
+				if ((c->iId == 0) && sh && sh->isStrong()) {
 					QColor qc(Qt::green);
 					qc.setAlpha(32);
 					return qc;
 				}
 				break;
+			}
 			default:
 				break;
 		}
@@ -493,6 +496,7 @@ QVariant UserModel::otherRoles(const QModelIndex &idx, int role) const {
 			const_cast<UserModel *>(this)->bClicked = false;
 			switch (section) {
 				case 0: {
+						ServerHandlerPtr sh = g.getCurrentServerHandler();
 						if (isUser) {
 							QString qsImage;
 							if (! p->qbaTextureHash.isEmpty()) {
@@ -501,7 +505,7 @@ QVariant UserModel::otherRoles(const QModelIndex &idx, int role) const {
 									if (p->qbaTexture.isEmpty()) {
 										MumbleProto::RequestBlob mprb;
 										mprb.add_session_texture(p->uiSession);
-										g.sh->sendMessage(mprb);
+										sh->sendMessage(mprb);
 									} else {
 										g.o->verifyTexture(p);
 									}
@@ -533,7 +537,7 @@ QVariant UserModel::otherRoles(const QModelIndex &idx, int role) const {
 
 										MumbleProto::RequestBlob mprb;
 										mprb.add_session_comment(p->uiSession);
-										g.sh->sendMessage(mprb);
+										sh->sendMessage(mprb);
 										return QVariant();
 									}
 								}
@@ -554,7 +558,7 @@ QVariant UserModel::otherRoles(const QModelIndex &idx, int role) const {
 
 										MumbleProto::RequestBlob mprb;
 										mprb.add_channel_description(c->iId);
-										g.sh->sendMessage(mprb);
+										sh->sendMessage(mprb);
 										return QVariant();
 									}
 								}
@@ -1361,10 +1365,11 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 
 	if (! isChannel) {
 		// User dropped somewhere
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
 		MumbleProto::UserState mpus;
 		mpus.set_session(uiSession);
 		mpus.set_channel_id(c->iId);
-		g.sh->sendMessage(mpus);
+		sh->sendMessage(mpus);
 	} else if (c->iId != iId) {
 		// Channel dropped somewhere (not on itself)
 		int ret;
@@ -1469,11 +1474,11 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 						for (int i = row; i <= ilast; i++) {
 							Channel *tmp = pi->channelAt(i);
 							if (tmp != dropped) {
+								ServerHandlerPtr sh = g.getCurrentServerHandler();
 								MumbleProto::ChannelState mpcs;
 								mpcs.set_channel_id(tmp->iId);
 								mpcs.set_position(tmp->iPosition + 40);
-								g.sh->sendMessage(mpcs);
-
+								sh->sendMessage(mpcs);
 							}
 						}
 						inewpos = upper->iPosition + 20;
@@ -1487,12 +1492,13 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 			return false;
 		}
 
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
 		MumbleProto::ChannelState mpcs;
 		mpcs.set_channel_id(iId);
 		if (dropped->parent() != c)
 			mpcs.set_parent(c->iId);
 		mpcs.set_position(static_cast<int>(inewpos));
-		g.sh->sendMessage(mpcs);
+		sh->sendMessage(mpcs);
 	}
 
 	return true;

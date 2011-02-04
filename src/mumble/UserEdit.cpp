@@ -61,6 +61,7 @@ void UserEdit::accept() {
 	}
 
 	if (! qmChanged.isEmpty()) {
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
 		MumbleProto::UserList mpul;
 		QMap<int, QString>::const_iterator i;
 		for (i=qmChanged.constBegin(); i!=qmChanged.constEnd(); ++i) {
@@ -69,7 +70,7 @@ void UserEdit::accept() {
 			if (! i.value().isEmpty())
 				u->set_name(u8(i.value()));
 		}
-		g.sh->sendMessage(mpul);
+		sh->sendMessage(mpul);
 	}
 
 	QDialog::accept();

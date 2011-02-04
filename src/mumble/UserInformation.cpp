@@ -67,7 +67,8 @@ void UserInformation::tick() {
 
 	bRequested = true;
 
-	g.sh->requestUserStats(uiSession, true);
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	sh->requestUserStats(uiSession, true);
 }
 
 void UserInformation::on_qpbCertificate_clicked() {

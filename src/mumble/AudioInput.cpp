@@ -859,7 +859,7 @@ void AudioInput::flushCheck(const QByteArray &frame, bool terminator) {
 		pds << g.p->fPosition[2];
 	}
 
-	ServerHandlerPtr sh = g.sh;
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 	if (sh) {
 		VoiceRecorderPtr recorder(sh->recorder);
 		if (recorder)

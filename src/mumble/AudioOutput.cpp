@@ -982,10 +982,10 @@ bool AudioOutput::mix(void *outbuff, unsigned int nsamp) {
 	const float adjustFactor = std::pow(10, -18. / 20);
 	const float mul = g.s.fVolume;
 	const unsigned int nchan = iChannels;
-	ServerHandlerPtr sh = g.sh;
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 	VoiceRecorderPtr recorder;
 	if (sh)
-		recorder = g.sh->recorder;
+		recorder = sh->recorder;
 
 	qrwlOutputs.lockForRead();
 	bool needAdjustment = false;

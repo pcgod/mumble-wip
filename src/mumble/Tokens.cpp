@@ -36,7 +36,8 @@
 Tokens::Tokens(QWidget *p) : QDialog(p) {
 	setupUi(this);
 
-	qbaDigest = g.sh->qbaDigest;
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	qbaDigest = sh->qbaDigest;
 	QStringList tokens = Database::getTokens(qbaDigest);
 	tokens.sort();
 	foreach(const QString &qs, tokens) {
@@ -57,10 +58,11 @@ void Tokens::accept() {
 	}
 	Database::setTokens(qbaDigest, qsl);
 
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 	MumbleProto::Authenticate msg;
 	foreach(const QString &qs, qsl)
 		msg.add_tokens(u8(qs));
-	g.sh->sendMessage(msg);
+	sh->sendMessage(msg);
 
 	QDialog::accept();
 }

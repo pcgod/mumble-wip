@@ -965,9 +965,10 @@ void ConnectDialog::on_qaFavoriteAddNew_triggered() {
 			port = si->usPort;
 			pw = si->qsPassword;
 		} else {
+			ServerHandlerPtr sh = g.getCurrentServerHandler();
 			// If connected to a server assume the user wants to add it
-			if (g.sh && g.sh->isRunning()) {
-				g.sh->getConnectionInfo(host, port, user, pw);
+			if (sh && sh->isRunning()) {
+				sh->getConnectionInfo(host, port, user, pw);
 				Channel *c = Channel::get(0);
 				if (c) {
 					if (c->qsName != QLatin1String("Root"))

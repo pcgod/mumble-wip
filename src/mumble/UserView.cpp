@@ -231,7 +231,8 @@ void UserView::nodeActivated(const QModelIndex &idx) {
 	Channel *c = um->getChannel(idx);
 	if (c) {
 		// if a channel is activated join it
-		g.sh->joinChannel(c->iId);
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
+		sh->joinChannel(c->iId);
 	}
 }
 

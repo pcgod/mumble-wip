@@ -102,6 +102,8 @@ public:
 
 	Global();
 	~Global();
+
+	boost::shared_ptr<ServerHandler> getCurrentServerHandler();
 };
 
 // Class to handle ordered initialization of globals.

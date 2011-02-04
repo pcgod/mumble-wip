@@ -71,7 +71,8 @@ void BanEditor::accept() {
 		be->set_duration(b.iDuration);
 	}
 
-	g.sh->sendMessage(msg);
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	sh->sendMessage(msg);
 	QDialog::accept();
 }
 

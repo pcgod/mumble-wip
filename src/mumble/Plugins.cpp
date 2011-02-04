@@ -393,6 +393,7 @@ void Plugins::on_Timer_timeout() {
 			ssContextSent.clear();
 			swsIdentitySent.clear();
 		} else if ((context != ssContextSent) || (swsIdentity != swsIdentitySent)) {
+			ServerHandlerPtr sh = g.getCurrentServerHandler();
 			MumbleProto::UserState mpus;
 			mpus.set_session(g.uiSession);
 			if (context != ssContextSent) {
@@ -403,8 +404,8 @@ void Plugins::on_Timer_timeout() {
 				swsIdentitySent.assign(swsIdentity);
 				mpus.set_plugin_identity(u8(QString::fromStdWString(swsIdentitySent)));
 			}
-			if (g.sh)
-				g.sh->sendMessage(mpus);
+			if (sh)
+				sh->sendMessage(mpus);
 		}
 	}
 

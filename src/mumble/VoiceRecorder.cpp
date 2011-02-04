@@ -116,10 +116,11 @@ QString VoiceRecorder::expandTemplateVariables(const QString &path, boost::share
 	QString time(qdtRecordingStart.time().toString(QLatin1String("hh-mm-ss")));
 
 	QString hostname(QLatin1String("Unknown"));
-	if (g.sh && g.uiSession != 0) {
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	if (sh && g.uiSession != 0) {
 		unsigned short port;
 		QString uname, pw;
-		g.sh->getConnectionInfo(hostname, port, uname, pw);
+		sh->getConnectionInfo(hostname, port, uname, pw);
 	}
 
 	// Create hash which stores the names of the variables with the corresponding values.
@@ -230,8 +231,11 @@ void VoiceRecorder::run() {
 	}
 
 	Q_ASSERT(sf_format_check(&sfinfo));
-	if (g.sh && g.sh->uiVersion < 0201003)
-		return;
+	{
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
+		if (sh && sh->uiVersion < 0201003)
+			return;
+	}
 
 	bRecording = true;
 	emit recording_started();
@@ -240,9 +244,12 @@ void VoiceRecorder::run() {
 		qmSleepLock.lock();
 		qwcSleep.wait(&qmSleepLock);
 
-		if (!bRecording || (g.sh && g.sh->uiVersion < 0201003)) {
-			qmSleepLock.unlock();
-			break;
+		{
+			ServerHandlerPtr sh = g.getCurrentServerHandler();
+			if (!bRecording || (sh && sh->uiVersion < 0201003)) {
+				qmSleepLock.unlock();
+				break;
+			}
 		}
 
 		while (!qlRecordBuffer.isEmpty()) {

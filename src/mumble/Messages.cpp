@@ -108,12 +108,13 @@ void MainWindow::msgServerSync(const MumbleProto::ServerSync &msg) {
 
 	findDesiredChannel();
 
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 	QString host, uname, pw;
 	unsigned short port;
 
-	g.sh->getConnectionInfo(host, port, uname, pw);
+	sh->getConnectionInfo(host, port, uname, pw);
 
-	QList<Shortcut> sc = Database::getShortcuts(g.sh->qbaDigest);
+	QList<Shortcut> sc = Database::getShortcuts(sh->qbaDigest);
 	if (! sc.isEmpty()) {
 		for (int i=0;i<sc.count(); ++i) {
 			Shortcut &s = sc[i];
@@ -181,11 +182,12 @@ void MainWindow::msgPermissionDenied(const MumbleProto::PermissionDenied &msg) {
 			break;
 		case MumbleProto::PermissionDenied_DenyType_H9K: {
 				if (g.bHappyEaster) {
+					ServerHandlerPtr sh = g.getCurrentServerHandler();
 					unsigned short p;
 					QString h, u, pw;
 					bool bold = g.s.bDeaf;
 					bool bold2 = g.s.bTTS;
-					g.sh->getConnectionInfo(h, p, u, pw);
+					sh->getConnectionInfo(h, p, u, pw);
 					g.s.bDeaf = false;
 					g.s.bTTS = true;
 					quint32 oflags = g.s.qmMessages.value(Log::PermissionDenied);
@@ -603,7 +605,8 @@ void MainWindow::msgPing(const MumbleProto::Ping &) {
 }
 
 void MainWindow::msgCryptSetup(const MumbleProto::CryptSetup &msg) {
-	ConnectionPtr c= g.sh->cConnection;
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
+	ConnectionPtr c= sh->cConnection;
 	if (! c)
 		return;
 	if (msg.has_key() && msg.has_client_nonce() && msg.has_server_nonce()) {
@@ -621,7 +624,7 @@ void MainWindow::msgCryptSetup(const MumbleProto::CryptSetup &msg) {
 	} else {
 		MumbleProto::CryptSetup mpcs;
 		mpcs.set_client_nonce(std::string(reinterpret_cast<const char *>(c->csCrypt.encrypt_iv), AES_BLOCK_SIZE));
-		g.sh->sendMessage(mpcs);
+		sh->sendMessage(mpcs);
 	}
 }
 
@@ -668,14 +671,15 @@ void MainWindow::removeContextAction(const MumbleProto::ContextActionModify &msg
 }
 
 void MainWindow::msgVersion(const MumbleProto::Version &msg) {
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 	if (msg.has_version())
-		g.sh->uiVersion = msg.version();
+		sh->uiVersion = msg.version();
 	if (msg.has_release())
-		g.sh->qsRelease = u8(msg.release());
+		sh->qsRelease = u8(msg.release());
 	if (msg.has_os()) {
-		g.sh->qsOS = u8(msg.os());
+		sh->qsOS = u8(msg.os());
 		if (msg.has_os_version())
-			g.sh->qsOSVersion = u8(msg.os_version());
+			sh->qsOSVersion = u8(msg.os_version());
 	}
 }
 
@@ -701,7 +705,8 @@ void MainWindow::msgPermissionQuery(const MumbleProto::PermissionQuery &msg) {
 
 		// We always need the permissions of the current focus channel
 		if (current && current->iId != msg.channel_id()) {
-			g.sh->requestChannelPermissions(current->iId);
+			ServerHandlerPtr sh = g.getCurrentServerHandler();
+			sh->requestChannelPermissions(current->iId);
 
 			current->uiPermissions = ChanACL::All;
 		}
@@ -718,12 +723,13 @@ void MainWindow::msgPermissionQuery(const MumbleProto::PermissionQuery &msg) {
 }
 
 void MainWindow::msgCodecVersion(const MumbleProto::CodecVersion &msg) {
+	ServerHandlerPtr sh = g.getCurrentServerHandler();
 	int alpha = msg.has_alpha() ? msg.alpha() : -1;
 	int beta = msg.has_beta() ? msg.beta() : -1;
 	bool pref = msg.prefer_alpha();
 
 	// Workaround for broken 1.2.2 servers
-	if (g.sh && g.sh->uiVersion == 0x010202 && alpha != -1 && alpha == beta) {
+	if (sh && sh->uiVersion == 0x010202 && alpha != -1 && alpha == beta) {
 		if (pref)
 			beta = g.iCodecBeta;
 		else
