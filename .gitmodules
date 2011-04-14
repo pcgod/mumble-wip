@@ -10,3 +10,6 @@
 [submodule "opus-src"]
 	path = opus-src
 	url = git://git.xiph.org/opus.git
+[submodule "iris"]
+	path = iris
+	url = git://github.com/psi-im/iris.git
