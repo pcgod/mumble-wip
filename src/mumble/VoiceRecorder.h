@@ -85,8 +85,11 @@ class VoiceRecorder : public QThread {
 
 		// Keep the recording state for one user.
 		struct RecordInfo {
-			explicit RecordInfo();
+			explicit RecordInfo(const boost::shared_ptr<ClientUser> cu);
 			~RecordInfo();
+
+			// Weak pointer to the ClientUser object.
+			const boost::weak_ptr<ClientUser> cuUser;
 
 			// libsndfile's handle.
 			SNDFILE *sf;

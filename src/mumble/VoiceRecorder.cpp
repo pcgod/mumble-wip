@@ -40,11 +40,11 @@
 #include "../Timer.h"
 
 VoiceRecorder::RecordBuffer::RecordBuffer(const boost::shared_ptr<ClientUser> cu,
-        boost::shared_array<float> buffer, int samples, quint64 timestamp) :
+		boost::shared_array<float> buffer, int samples, quint64 timestamp) :
 		cuUser(cu), fBuffer(buffer), iSamples(samples), uiTimestamp(timestamp) {
 }
 
-VoiceRecorder::RecordInfo::RecordInfo() : sf(NULL), uiLastPosition(0) {
+VoiceRecorder::RecordInfo::RecordInfo(const boost::shared_ptr<ClientUser> cu) : cuUser(cu), sf(NULL), uiLastPosition(0) {
 }
 
 VoiceRecorder::RecordInfo::~RecordInfo() {
@@ -252,8 +252,8 @@ void VoiceRecorder::run() {
 			}
 		}
 
+		boost::shared_ptr<RecordBuffer> rb;
 		while (!qlRecordBuffer.isEmpty()) {
-			boost::shared_ptr<RecordBuffer> rb;
 			{
 				QMutexLocker l(&qmBufferLock);
 				rb = qlRecordBuffer.takeFirst();
@@ -328,6 +328,11 @@ void VoiceRecorder::run() {
 			// Write the audio buffer and update the timestamp in |ri|.
 			sf_write_float(ri->sf, rb->fBuffer.get(), rb->iSamples);
 			ri->uiLastPosition = rb->uiTimestamp;
+
+			rb.reset();
+			if (ri->cuUser.expired()) {
+				qhRecordInfo.remove(index);
+			}
 		}
 
 		qmSleepLock.unlock();
@@ -348,8 +353,13 @@ void VoiceRecorder::addBuffer(const boost::shared_ptr<ClientUser> cu, boost::sha
 
 	// Create a new RecordInfo object if this is a new user.
 	int index = bMixDown ? 0 : cu->uiSession;
-	if (!qhRecordInfo.contains(index)) {
-		boost::shared_ptr<RecordInfo> ri = boost::make_shared<RecordInfo>();
+	bool haveRecordInfo = qhRecordInfo.contains(index);
+	if (!bMixDown && (haveRecordInfo && qhRecordInfo.value(index)->cuUser.expired())) {
+		qhRecordInfo.remove(index);
+		haveRecordInfo = false;
+	}
+	if (!haveRecordInfo) {
+		boost::shared_ptr<RecordInfo> ri = boost::make_shared<RecordInfo>(cu);
 		qhRecordInfo.insert(index, ri);
 	}
 
