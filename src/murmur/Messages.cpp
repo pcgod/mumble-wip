@@ -210,9 +210,9 @@ void Server::msgAuthenticate(ServerUser *uSource, MumbleProto::Authenticate &msg
 	uSource->csCrypt.genKey();
 
 	MumbleProto::CryptSetup mpcrypt;
-	mpcrypt.set_key(std::string(reinterpret_cast<const char *>(uSource->csCrypt.raw_key), AES_BLOCK_SIZE));
-	mpcrypt.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.encrypt_iv), AES_BLOCK_SIZE));
-	mpcrypt.set_client_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.decrypt_iv), AES_BLOCK_SIZE));
+	mpcrypt.set_key(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getKey()), AES_BLOCK_SIZE));
+	mpcrypt.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getEncryptIV()), AES_BLOCK_SIZE));
+	mpcrypt.set_client_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getDecryptIV()), AES_BLOCK_SIZE));
 	sendMessage(uSource, mpcrypt);
 
 	if (msg.celt_versions_size() > 0) {
@@ -1378,13 +1378,13 @@ void Server::msgCryptSetup(ServerUser *uSource, MumbleProto::CryptSetup &msg) {
 	MSG_SETUP_NO_UNIDLE(ServerUser::Authenticated);
 	if (! msg.has_client_nonce()) {
 		log(uSource, "Requested crypt-nonce resync");
-		msg.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.encrypt_iv), AES_BLOCK_SIZE));
+		msg.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getEncryptIV()), AES_BLOCK_SIZE));
 		sendMessage(uSource, msg);
 	} else {
 		const std::string &str = msg.client_nonce();
 		if (str.size()  == AES_BLOCK_SIZE) {
 			uSource->csCrypt.uiResync++;
-			memcpy(uSource->csCrypt.decrypt_iv, str.data(), AES_BLOCK_SIZE);
+			uSource->csCrypt.setDecryptIV(reinterpret_cast<const unsigned char *>(str.data()));
 		}
 	}
 }

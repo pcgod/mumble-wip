@@ -619,11 +619,11 @@ void MainWindow::msgCryptSetup(const MumbleProto::CryptSetup &msg) {
 		const std::string &server_nonce = msg.server_nonce();
 		if (server_nonce.size() == AES_BLOCK_SIZE) {
 			c->csCrypt.uiResync++;
-			memcpy(c->csCrypt.decrypt_iv, server_nonce.data(), AES_BLOCK_SIZE);
+			c->csCrypt.setDecryptIV(reinterpret_cast<const unsigned char *>(server_nonce.data()));
 		}
 	} else {
 		MumbleProto::CryptSetup mpcs;
-		mpcs.set_client_nonce(std::string(reinterpret_cast<const char *>(c->csCrypt.encrypt_iv), AES_BLOCK_SIZE));
+		mpcs.set_client_nonce(std::string(reinterpret_cast<const char *>(c->csCrypt.getEncryptIV()), AES_BLOCK_SIZE));
 		sh->sendMessage(mpcs);
 	}
 }

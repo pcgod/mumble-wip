@@ -48,6 +48,9 @@ CryptState::CryptState() {
 	uiRemoteGood=uiRemoteLate=uiRemoteLost=uiRemoteResync=0;
 }
 
+CryptState::~CryptState() {
+}
+
 bool CryptState::isValid() const {
 	return bInit;
 }
@@ -72,6 +75,18 @@ void CryptState::setKey(const unsigned char *rkey, const unsigned char *eiv, con
 
 void CryptState::setDecryptIV(const unsigned char *iv) {
 	memcpy(decrypt_iv, iv, AES_BLOCK_SIZE);
+}
+
+const unsigned char *CryptState::getKey() const {
+	return raw_key;
+}
+
+const unsigned char *CryptState::getDecryptIV() const {
+	return decrypt_iv;
+}
+
+const unsigned char *CryptState::getEncryptIV() const {
+	return encrypt_iv;
 }
 
 void CryptState::encrypt(const unsigned char *source, unsigned char *dst, unsigned int plain_length) {
