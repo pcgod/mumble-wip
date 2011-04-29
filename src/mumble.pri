@@ -1,13 +1,13 @@
 include(../compiler.pri)
 
 VERSION		= 1.2.4
-DIST		= mumble.pri Message.h PacketDataStream.h CryptStateBase.h CryptStateOcb.h Timer.h Version.h OSInfo.h SSL.h Mumble.proto
+DIST		= mumble.pri Message.h PacketDataStream.h CryptStateBase.h CryptStateEax.h CryptStateOcb.h Timer.h Version.h OSInfo.h SSL.h Mumble.proto
 CONFIG		+= qt thread debug_and_release warn_on
 DEFINES		*= MUMBLE_VERSION_STRING=$$VERSION
 INCLUDEPATH	+= $$PWD .
 VPATH		+= $$PWD
-HEADERS		*= ACL.h Channel.h CryptStateBase.h CryptStateOcb.h Connection.h Group.h User.h Net.h OSInfo.h Timer.h SSL.h Version.h
-SOURCES 	*= Mumble.pb.cc ACL.cpp Group.cpp Channel.cpp Connection.cpp User.cpp Timer.cpp CryptStateBase.cpp CryptStateOcb.cpp OSInfo.cpp Net.cpp SSL.cpp Version.cpp
+HEADERS		*= ACL.h Channel.h CryptStateBase.h CryptStateEax.h CryptStateOcb.h Connection.h Group.h User.h Net.h OSInfo.h Timer.h SSL.h Version.h
+SOURCES 	*= Mumble.pb.cc ACL.cpp Group.cpp Channel.cpp Connection.cpp User.cpp Timer.cpp CryptStateBase.cpp CryptStateEax.cpp CryptStateOcb.cpp OSInfo.cpp Net.cpp SSL.cpp Version.cpp
 
 pb.output = ${QMAKE_FILE_BASE}.pb.cc
 pb.commands = protoc --cpp_out=. -I. -I.. ${QMAKE_FILE_NAME}

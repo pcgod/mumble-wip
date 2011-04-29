@@ -178,6 +178,7 @@ bool CryptStateBase::decrypt(const unsigned char *source, unsigned char *dst, un
 		}
 	}
 
+	memcpy(tag, source + 1, 3);
 	doDecrypt(source+4, dst, plain_length, decrypt_iv, tag);
 
 	if (memcmp(tag, source+1, 3) != 0) {
