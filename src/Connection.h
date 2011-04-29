@@ -32,8 +32,9 @@
 #define _CONNECTION_H
 
 #include "murmur_pch.h"
-#include "CryptState.h"
 #include "Mumble.pb.h"
+
+class CryptStateBase;
 
 class Connection : public QObject {
 	private:
@@ -75,7 +76,7 @@ class Connection : public QObject {
 		int activityTime() const;
 		void resetActivityTime();
 
-		CryptState csCrypt;
+		boost::shared_ptr<CryptStateBase> csCrypt;
 
 		QList<QSslCertificate> peerCertificateChain() const;
 		QSslCipher sessionCipher() const;

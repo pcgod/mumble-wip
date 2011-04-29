@@ -34,6 +34,7 @@
 #include "Cert.h"
 #include "AudioInput.h"
 #include "ConnectDialog.h"
+#include "CryptStateBase.h"
 #include "User.h"
 #include "Channel.h"
 #include "ACLEditor.h"
@@ -1037,7 +1038,7 @@ void MainWindow::on_qaServerInformation_triggered() {
 	if (! c)
 		return;
 
-	CryptState &cs = c->csCrypt;
+	boost::shared_ptr<CryptStateBase> cs(c->csCrypt);
 	QSslCipher qsc = sh->qscCipher;
 
 	unsigned int version = sh->uiVersion;
@@ -1076,8 +1077,8 @@ void MainWindow::on_qaServerInformation_triggered() {
 		                              "<tr><th>%7</th><td>%11</td><td>%15</td></tr>"
 		                              "</table>")
 		          .arg(tr("UDP Statistics")).arg(tr("To Server")).arg(tr("From Server")).arg(tr("Good")).arg(tr("Late")).arg(tr("Lost")).arg(tr("Resync"))
-		          .arg(cs.uiRemoteGood).arg(cs.uiRemoteLate).arg(cs.uiRemoteLost).arg(cs.uiRemoteResync)
-		          .arg(cs.uiGood).arg(cs.uiLate).arg(cs.uiLost).arg(cs.uiResync);
+		          .arg(cs->uiRemoteGood).arg(cs->uiRemoteLate).arg(cs->uiRemoteLost).arg(cs->uiRemoteResync)
+		          .arg(cs->uiGood).arg(cs->uiLate).arg(cs->uiLost).arg(cs->uiResync);
 	}
 	qsAudio=tr("<h2>Audio bandwidth</h2><p>Maximum %1 kbit/s<br />Current %2 kbit/s</p>").arg(g.iMaxBandwidth / 1000.0,0,'f',1).arg(g.iAudioBandwidth / 1000.0,0,'f',1);
 

@@ -33,6 +33,7 @@
 #include "AudioWizard.h"
 #include "AudioInput.h"
 #include "ConnectDialog.h"
+#include "CryptStateOcb.h"
 #include "User.h"
 #include "Channel.h"
 #include "ACLEditor.h"
@@ -613,17 +614,20 @@ void MainWindow::msgCryptSetup(const MumbleProto::CryptSetup &msg) {
 		const std::string &key = msg.key();
 		const std::string &client_nonce = msg.client_nonce();
 		const std::string &server_nonce = msg.server_nonce();
-		if (key.size() == AES_BLOCK_SIZE && client_nonce.size() == AES_BLOCK_SIZE && server_nonce.size() == AES_BLOCK_SIZE)
-			c->csCrypt.setKey(reinterpret_cast<const unsigned char *>(key.data()), reinterpret_cast<const unsigned char *>(client_nonce.data()), reinterpret_cast<const unsigned char *>(server_nonce.data()));
+		if (key.size() == AES_BLOCK_SIZE && client_nonce.size() == AES_BLOCK_SIZE && server_nonce.size() == AES_BLOCK_SIZE) {
+			if (!c->csCrypt)
+				c->csCrypt.reset(new CryptStateOcb());
+			c->csCrypt->setKey(reinterpret_cast<const unsigned char *>(key.data()), reinterpret_cast<const unsigned char *>(client_nonce.data()), reinterpret_cast<const unsigned char *>(server_nonce.data()));
+		}
 	} else if (msg.has_server_nonce()) {
 		const std::string &server_nonce = msg.server_nonce();
 		if (server_nonce.size() == AES_BLOCK_SIZE) {
-			c->csCrypt.uiResync++;
-			c->csCrypt.setDecryptIV(reinterpret_cast<const unsigned char *>(server_nonce.data()));
+			c->csCrypt->uiResync++;
+			c->csCrypt->setDecryptIV(reinterpret_cast<const unsigned char *>(server_nonce.data()));
 		}
 	} else {
 		MumbleProto::CryptSetup mpcs;
-		mpcs.set_client_nonce(std::string(reinterpret_cast<const char *>(c->csCrypt.getEncryptIV()), AES_BLOCK_SIZE));
+		mpcs.set_client_nonce(std::string(reinterpret_cast<const char *>(c->csCrypt->getEncryptIV()), AES_BLOCK_SIZE));
 		sh->sendMessage(mpcs);
 	}
 }

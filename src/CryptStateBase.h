@@ -28,28 +28,29 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef _CRYPTSTATE_H
-#define _CRYPTSTATE_H
+#ifndef _CRYPTSTATEBASE_H
+#define _CRYPTSTATEBASE_H
 
 #include "murmur_pch.h"
 #include "Timer.h"
 
-class CryptState {
+class CryptStateBase {
 	private:
-		Q_DISABLE_COPY(CryptState)
+		Q_DISABLE_COPY(CryptStateBase)
+		bool bInit;
+
+		virtual void doEncrypt(const unsigned char *plain, unsigned char *encrypted, unsigned int len, const unsigned char *nonce, unsigned char *tag) = 0;
+		virtual void doDecrypt(const unsigned char *encrypted, unsigned char *plain, unsigned int len, const unsigned char *nonce, unsigned char *tag) = 0;
+
+	protected:
 		unsigned char raw_key[AES_BLOCK_SIZE];
 		unsigned char encrypt_iv[AES_BLOCK_SIZE];
 		unsigned char decrypt_iv[AES_BLOCK_SIZE];
 		unsigned char decrypt_history[0x100];
 		AES_KEY	encrypt_key;
 		AES_KEY decrypt_key;
-		bool bInit;
-
-		void ocb_encrypt(const unsigned char *plain, unsigned char *encrypted, unsigned int len, const unsigned char *nonce, unsigned char *tag);
-		void ocb_decrypt(const unsigned char *encrypted, unsigned char *plain, unsigned int len, const unsigned char *nonce, unsigned char *tag);
 
 	public:
-
 		unsigned int uiGood;
 		unsigned int uiLate;
 		unsigned int uiLost;
@@ -62,12 +63,12 @@ class CryptState {
 
 		Timer tLastGood;
 		Timer tLastRequest;
-		CryptState();
-		~CryptState();
+		CryptStateBase();
+		virtual ~CryptStateBase();
 
 		bool isValid() const;
-		void genKey();
-		void setKey(const unsigned char *rkey, const unsigned char *eiv, const unsigned char *div);
+		virtual void genKey();
+		virtual void setKey(const unsigned char *rkey, const unsigned char *eiv, const unsigned char *div);
 		void setDecryptIV(const unsigned char *iv);
 		const unsigned char *getKey() const;
 		const unsigned char *getDecryptIV() const;

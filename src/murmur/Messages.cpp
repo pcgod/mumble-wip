@@ -31,6 +31,7 @@
 
 #include "User.h"
 #include "Channel.h"
+#include "CryptStateOcb.h"
 #include "ACL.h"
 #include "Group.h"
 #include "Message.h"
@@ -206,13 +207,15 @@ void Server::msgAuthenticate(ServerUser *uSource, MumbleProto::Authenticate &msg
 		uOld->disconnectSocket(true);
 	}
 
+	uSource->csCrypt.reset(new CryptStateOcb());
+
 	// Setup UDP encryption
-	uSource->csCrypt.genKey();
+	uSource->csCrypt->genKey();
 
 	MumbleProto::CryptSetup mpcrypt;
-	mpcrypt.set_key(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getKey()), AES_BLOCK_SIZE));
-	mpcrypt.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getEncryptIV()), AES_BLOCK_SIZE));
-	mpcrypt.set_client_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getDecryptIV()), AES_BLOCK_SIZE));
+	mpcrypt.set_key(std::string(reinterpret_cast<const char *>(uSource->csCrypt->getKey()), AES_BLOCK_SIZE));
+	mpcrypt.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt->getEncryptIV()), AES_BLOCK_SIZE));
+	mpcrypt.set_client_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt->getDecryptIV()), AES_BLOCK_SIZE));
 	sendMessage(uSource, mpcrypt);
 
 	if (msg.celt_versions_size() > 0) {
@@ -1348,12 +1351,12 @@ void Server::msgQueryUsers(ServerUser *uSource, MumbleProto::QueryUsers &msg) {
 
 void Server::msgPing(ServerUser *uSource, MumbleProto::Ping &msg) {
 	MSG_SETUP_NO_UNIDLE(ServerUser::Authenticated);
-	CryptState &cs=uSource->csCrypt;
+	boost::shared_ptr<CryptStateBase> cs(uSource->csCrypt);
 
-	cs.uiRemoteGood = msg.good();
-	cs.uiRemoteLate = msg.late();
-	cs.uiRemoteLost = msg.lost();
-	cs.uiRemoteResync = msg.resync();
+	cs->uiRemoteGood = msg.good();
+	cs->uiRemoteLate = msg.late();
+	cs->uiRemoteLost = msg.lost();
+	cs->uiRemoteResync = msg.resync();
 
 	uSource->dUDPPingAvg = msg.udp_ping_avg();
 	uSource->dUDPPingVar = msg.udp_ping_var();
@@ -1366,10 +1369,10 @@ void Server::msgPing(ServerUser *uSource, MumbleProto::Ping &msg) {
 
 	msg.Clear();
 	msg.set_timestamp(ts);
-	msg.set_good(cs.uiGood);
-	msg.set_late(cs.uiLate);
-	msg.set_lost(cs.uiLost);
-	msg.set_resync(cs.uiResync);
+	msg.set_good(cs->uiGood);
+	msg.set_late(cs->uiLate);
+	msg.set_lost(cs->uiLost);
+	msg.set_resync(cs->uiResync);
 
 	sendMessage(uSource, msg);
 }
@@ -1378,13 +1381,13 @@ void Server::msgCryptSetup(ServerUser *uSource, MumbleProto::CryptSetup &msg) {
 	MSG_SETUP_NO_UNIDLE(ServerUser::Authenticated);
 	if (! msg.has_client_nonce()) {
 		log(uSource, "Requested crypt-nonce resync");
-		msg.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt.getEncryptIV()), AES_BLOCK_SIZE));
+		msg.set_server_nonce(std::string(reinterpret_cast<const char *>(uSource->csCrypt->getEncryptIV()), AES_BLOCK_SIZE));
 		sendMessage(uSource, msg);
 	} else {
 		const std::string &str = msg.client_nonce();
 		if (str.size()  == AES_BLOCK_SIZE) {
-			uSource->csCrypt.uiResync++;
-			uSource->csCrypt.setDecryptIV(reinterpret_cast<const unsigned char *>(str.data()));
+			uSource->csCrypt->uiResync++;
+			uSource->csCrypt->setDecryptIV(reinterpret_cast<const unsigned char *>(str.data()));
 		}
 	}
 }
@@ -1530,7 +1533,7 @@ void Server::msgCodecVersion(ServerUser *, MumbleProto::CodecVersion &) {
 void Server::msgUserStats(ServerUser*uSource, MumbleProto::UserStats &msg) {
 	MSG_SETUP_NO_UNIDLE(ServerUser::Authenticated);
 	VICTIM_SETUP;
-	const CryptState &cs = pDstServerUser->csCrypt;
+	const boost::shared_ptr<CryptStateBase> cs(pDstServerUser->csCrypt);
 	const BandwidthRecord &bwr = pDstServerUser->bwr;
 	const QList<QSslCertificate> &certs = pDstServerUser->peerCertificateChain();
 	MumbleProto::UserStats_Stats *mpusss;
@@ -1562,16 +1565,16 @@ void Server::msgUserStats(ServerUser*uSource, MumbleProto::UserStats &msg) {
 
 	if (local) {
 		mpusss = msg.mutable_from_client();
-		mpusss->set_good(cs.uiGood);
-		mpusss->set_late(cs.uiLate);
-		mpusss->set_lost(cs.uiLost);
-		mpusss->set_resync(cs.uiResync);
+		mpusss->set_good(cs->uiGood);
+		mpusss->set_late(cs->uiLate);
+		mpusss->set_lost(cs->uiLost);
+		mpusss->set_resync(cs->uiResync);
 
 		mpusss = msg.mutable_from_server();
-		mpusss->set_good(cs.uiRemoteGood);
-		mpusss->set_late(cs.uiRemoteLate);
-		mpusss->set_lost(cs.uiRemoteLost);
-		mpusss->set_resync(cs.uiRemoteResync);
+		mpusss->set_good(cs->uiRemoteGood);
+		mpusss->set_late(cs->uiRemoteLate);
+		mpusss->set_lost(cs->uiRemoteLost);
+		mpusss->set_resync(cs->uiRemoteResync);
 	}
 
 	msg.set_udp_packets(pDstServerUser->uiUDPPackets);

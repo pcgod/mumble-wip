@@ -33,6 +33,7 @@
 
 #include "User.h"
 #include "Channel.h"
+#include "CryptStateBase.h"
 #include "ACL.h"
 #include "Group.h"
 #include "Message.h"
@@ -728,7 +729,7 @@ void Server::run() {
 				} else {
 					// Unknown peer
 					foreach(ServerUser *usr, qhHostUsers.value(ha)) {
-						if (usr->csCrypt.isValid() && checkDecrypt(usr, encrypt, buffer, len)) {
+						if (usr->csCrypt && usr->csCrypt->isValid() && checkDecrypt(usr, encrypt, buffer, len)) {
 							// Every time we relock, reverify users' existance.
 							// The main thread might delete the user while the lock isn't held.
 							unsigned int uiSession = usr->uiSession;
@@ -785,12 +786,12 @@ void Server::run() {
 }
 
 bool Server::checkDecrypt(ServerUser *u, const char *encrypt, char *plain, unsigned int len) {
-	if (u->csCrypt.isValid() && u->csCrypt.decrypt(reinterpret_cast<const unsigned char *>(encrypt), reinterpret_cast<unsigned char *>(plain), len))
+	if (u->csCrypt->isValid() && u->csCrypt->decrypt(reinterpret_cast<const unsigned char *>(encrypt), reinterpret_cast<unsigned char *>(plain), len))
 		return true;
 
-	if (u->csCrypt.tLastGood.elapsed() > 5000000ULL) {
-		if (u->csCrypt.tLastRequest.elapsed() > 5000000ULL) {
-			u->csCrypt.tLastRequest.restart();
+	if (u->csCrypt->tLastGood.elapsed() > 5000000ULL) {
+		if (u->csCrypt->tLastRequest.elapsed() > 5000000ULL) {
+			u->csCrypt->tLastRequest.restart();
 			emit reqSync(u->uiSession);
 		}
 	}
@@ -798,14 +799,14 @@ bool Server::checkDecrypt(ServerUser *u, const char *encrypt, char *plain, unsig
 }
 
 void Server::sendMessage(ServerUser *u, const char *data, int len, QByteArray &cache, bool force) {
-	if ((u->bUdp || force) && (u->sUdpSocket != INVALID_SOCKET) && u->csCrypt.isValid()) {
+	if ((u->bUdp || force) && (u->sUdpSocket != INVALID_SOCKET) && u->csCrypt && u->csCrypt->isValid()) {
 #if defined(__LP64__)
 		STACKVAR(char, ebuffer, len+4+16);
 		char *buffer = reinterpret_cast<char *>(((reinterpret_cast<quint64>(ebuffer) + 8) & ~7) + 4);
 #else
 		STACKVAR(char, buffer, len+4);
 #endif
-		u->csCrypt.encrypt(reinterpret_cast<const unsigned char *>(data), reinterpret_cast<unsigned char *>(buffer), len);
+		u->csCrypt->encrypt(reinterpret_cast<const unsigned char *>(data), reinterpret_cast<unsigned char *>(buffer), len);
 #ifdef Q_OS_WIN
 		DWORD dwFlow = 0;
 		if (Meta::hQoS)
