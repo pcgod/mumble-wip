@@ -14,6 +14,10 @@ CONFIG *= ordered debug_and_release
   !CONFIG(no-bundled-celt) {
     SUBDIRS *= celt-0.7.0-build celt-0.11.0-build
   }
+  CONFIG(opus) {
+	DEFINES *= USE_OPUS
+	SUBDIRS *= opus-build
+  }
 
   SUBDIRS *= src/mumble mumble_exe
 
