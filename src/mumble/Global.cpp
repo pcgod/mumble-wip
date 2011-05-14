@@ -29,6 +29,7 @@
 */
 
 #include "Global.h"
+#include "../../iris/src/jdns/qjdns.h"
 
 Global *Global::g_global_struct;
 
@@ -58,7 +59,7 @@ static void migrateDataDir() {
 #endif
 }
 
-Global::Global() {
+Global::Global() : jdns(new QJDns()) {
 	mw = 0;
 	db = 0;
 	p = 0;
@@ -144,6 +145,9 @@ Global::Global() {
 #if QT_VERSION >= 0x040500
 	qs->setIniCodec("UTF-8");
 #endif
+
+	qRegisterMetaType<QJDns::Error>("QJDns::Error");
+	qRegisterMetaType<QJDns::Response>("QJDns::Response");
 }
 
 Global::~Global() {

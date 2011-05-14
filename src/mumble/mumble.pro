@@ -57,6 +57,13 @@ CONFIG(no-bundled-celt) {
   INCLUDEPATH	*= ../../celt-0.7.0-src/libcelt
 }
 
+CONFIG(debug, debug|release) {
+	QMAKE_LIBDIR *= ../../jdns-build/debug
+} else {
+	QMAKE_LIBDIR *= ../../jdns-build/release
+}
+LIBS *= -ljdns
+
 !win32 {
   QMAKE_CXXFLAGS	*= -Wall -Wextra
 }

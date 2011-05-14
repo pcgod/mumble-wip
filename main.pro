@@ -19,7 +19,7 @@ CONFIG *= ordered debug_and_release
 	SUBDIRS *= opus-build
   }
 
-  SUBDIRS *= src/mumble mumble_exe
+  SUBDIRS *= jdns-build src/mumble mumble_exe
 
   !CONFIG(no-plugins) {
     SUBDIRS *= plugins

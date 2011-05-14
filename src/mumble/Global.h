@@ -52,6 +52,7 @@ class LCD;
 class BonjourClient;
 class OverlayClient;
 class CELTCodec;
+class QJDns;
 
 struct Global {
 private:
@@ -63,6 +64,7 @@ public:
 	boost::shared_ptr<ServerHandler> sh;
 	boost::shared_ptr<AudioInput> ai;
 	boost::shared_ptr<AudioOutput> ao;
+	boost::scoped_ptr<QJDns> jdns;
 	Database *db;
 	Log *l;
 	Plugins *p;
