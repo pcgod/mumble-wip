@@ -159,42 +159,17 @@ QString OSInfo::getOSVersion() {
 	return qsCached;
 }
 
-void OSInfo::fillXml(QDomDocument &doc, QDomElement &root, const QString &os, const QString &osver, const QList<QHostAddress> &qlBind) {
-	QDomElement tag;
-	QDomText t;
+void OSInfo::fillXml(QXmlStreamWriter &stream, const QString &os, const QString &osver, const QList<QHostAddress> &qlBind) {
 	bool bIs64;
 	bool bSSE2 = false;
 	QString cpu_id, cpu_extid;
 
-	tag=doc.createElement(QLatin1String("machash"));
-	root.appendChild(tag);
-	t=doc.createTextNode(OSInfo::getMacHash(qlBind));
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("version"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QLatin1String(MUMTEXT(MUMBLE_VERSION_STRING)));
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("release"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QLatin1String(MUMBLE_RELEASE));
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("os"));
-	root.appendChild(tag);
-	t=doc.createTextNode(os);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("osver"));
-	root.appendChild(tag);
-	t=doc.createTextNode(osver);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("qt"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QString::fromLatin1(qVersion()));
-	tag.appendChild(t);
+	stream.writeTextElement(QLatin1String("machash"), OSInfo::getMacHash(qlBind));
+	stream.writeTextElement(QLatin1String("version"), QLatin1String(MUMTEXT(MUMBLE_VERSION_STRING)));
+	stream.writeTextElement(QLatin1String("release"), QLatin1String(MUMBLE_RELEASE));
+	stream.writeTextElement(QLatin1String("os"), os);
+	stream.writeTextElement(QLatin1String("osver"), osver);
+	stream.writeTextElement(QLatin1String("qt"), QLatin1String(qVersion()));
 
 #if defined(Q_WS_WIN)
 	BOOL bIsWow64 = FALSE;
@@ -206,10 +181,8 @@ void OSInfo::fillXml(QDomDocument &doc, QDomElement &root, const QString &os, co
 #else
 	bIs64 = (QSysInfo::WordSize == 64);
 #endif
-	tag=doc.createElement(QLatin1String("is64bit"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QString::number(bIs64 ? 1 : 0));
-	tag.appendChild(t);
+
+	stream.writeTextElement(QLatin1String("is64bit"), QString::number(bIs64 ? 1 : 0));
 
 #if defined(Q_WS_WIN)
 #define regstr(x) QString::fromLatin1(reinterpret_cast<const char *>(& x), 4)
@@ -239,18 +212,7 @@ void OSInfo::fillXml(QDomDocument &doc, QDomElement &root, const QString &os, co
 		cpu_extid.truncate(chop);
 #endif
 
-	tag=doc.createElement(QLatin1String("cpu_id"));
-	root.appendChild(tag);
-	t=doc.createTextNode(cpu_id);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("cpu_extid"));
-	root.appendChild(tag);
-	t=doc.createTextNode(cpu_extid);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("cpu_sse2"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QString::number(bSSE2 ? 1 : 0));
-	tag.appendChild(t);
+	stream.writeTextElement(QLatin1String("cpu_id"), cpu_id);
+	stream.writeTextElement(QLatin1String("cpu_extid"), cpu_extid);
+	stream.writeTextElement(QLatin1String("cpu_sse2"), QString::number(bSSE2 ? 1 : 0));
 }

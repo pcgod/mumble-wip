@@ -35,6 +35,10 @@
 #include "Channel.h"
 #include "ClientUser.h"
 
+#if QT_VERSION < 0x040600
+#include "QXmlStreamReaderCompat.h"
+#endif
+
 SocketRPCClient::SocketRPCClient(QLocalSocket *s, QObject *p) : QObject(p), qlsSocket(s), qbBuffer(NULL) {
 	qlsSocket->setParent(this);
 
@@ -92,110 +96,110 @@ void SocketRPCClient::readyRead() {
 }
 
 void SocketRPCClient::processXml() {
-	QDomDocument qdd;
-	qdd.setContent(qbaOutput, false);
+#if QT_VERSION < 0x040600
+	QXmlStreamReaderCompat xml(qbaOutput);
+#else
+	QXmlStreamReader xml(qbaOutput);
+#endif
 
-	QDomElement request = qdd.firstChildElement();
+	if (!xml.readNextStartElement())
+		return;
 
-	if (! request.isNull()) {
-		bool ack = false;
-		QMap<QString, QVariant> qmRequest;
-		QMap<QString, QVariant> qmReply;
-		QMap<QString, QVariant>::const_iterator iter;
+	bool ack = false;
+	QMap<QString, QVariant> qmRequest;
+	QMap<QString, QVariant> qmReply;
+	QMap<QString, QVariant>::const_iterator iter;
 
-		QDomNamedNodeMap attributes = request.attributes();
-		for (int i=0;i<attributes.count();++i) {
-			QDomAttr attr = attributes.item(i).toAttr();
-			qmRequest.insert(attr.name(), attr.value());
+	QXmlStreamAttributes attributes = xml.attributes();
+	foreach (QXmlStreamAttribute attr, attributes) {
+		qmRequest.insert(attr.name().toString(), attr.value().toString());
+	}
+
+	while (xml.readNextStartElement()) {
+		qmRequest.insert(xml.name().toString(), xml.readElementText());
+	}
+
+	iter = qmRequest.find(QLatin1String("reqid"));
+	if (iter != qmRequest.constEnd())
+		qmReply.insert(iter.key(), iter.value());
+
+	if (xml.name() == QLatin1String("focus")) {
+		g.mw->show();
+		g.mw->raise();
+		g.mw->activateWindow();
+
+		ack = true;
+	} else if (xml.name() == QLatin1String("self")) {
+		iter = qmRequest.find(QLatin1String("mute"));
+		if (iter != qmRequest.constEnd()) {
+			bool set = iter.value().toBool();
+			if (set != g.s.bMute) {
+				g.mw->qaAudioMute->setChecked(! set);
+				g.mw->qaAudioMute->trigger();
+			}
 		}
-		QDomNodeList children = request.childNodes();
-		for (int i=0;i<children.count();++i) {
-			QDomElement child = children.item(i).toElement();
-			if (! child.isNull())
-				qmRequest.insert(child.nodeName(), child.text());
+		iter = qmRequest.find(QLatin1String("deaf"));
+		if (iter != qmRequest.constEnd()) {
+			bool set = iter.value().toBool();
+			if (set != g.s.bDeaf) {
+				g.mw->qaAudioDeaf->setChecked(! set);
+				g.mw->qaAudioDeaf->trigger();
+			}
 		}
 
-		iter = qmRequest.find(QLatin1String("reqid"));
-		if (iter != qmRequest.constEnd())
-			qmReply.insert(iter.key(), iter.value());
+		ack = true;
+	} else if (xml.name() == QLatin1String("url")) {
+		ServerHandlerPtr sh = g.getCurrentServerHandler();
+		if (sh && sh->isRunning() && g.uiSession) {
+			QString host, user, pw;
+			unsigned short port;
+			QUrl u;
 
-		if (request.nodeName() == QLatin1String("focus")) {
-			g.mw->show();
-			g.mw->raise();
-			g.mw->activateWindow();
-
-			ack = true;
-		} else if (request.nodeName() == QLatin1String("self")) {
-			iter = qmRequest.find(QLatin1String("mute"));
-			if (iter != qmRequest.constEnd()) {
-				bool set = iter.value().toBool();
-				if (set != g.s.bMute) {
-					g.mw->qaAudioMute->setChecked(! set);
-					g.mw->qaAudioMute->trigger();
-				}
+			sh->getConnectionInfo(host, port, user, pw);
+			u.setScheme(QLatin1String("mumble"));
+			u.setHost(host);
+			u.setPort(port);
+			u.setUserName(user);
+			u.addQueryItem(QLatin1String("version"), QLatin1String("1.2.0"));
+			QStringList path;
+			Channel *c = ClientUser::get(g.uiSession)->cChannel;
+			while (c->cParent) {
+				path.prepend(c->qsName);
+				c = c->cParent;
 			}
-			iter = qmRequest.find(QLatin1String("deaf"));
-			if (iter != qmRequest.constEnd()) {
-				bool set = iter.value().toBool();
-				if (set != g.s.bDeaf) {
-					g.mw->qaAudioDeaf->setChecked(! set);
-					g.mw->qaAudioDeaf->trigger();
-				}
-			}
+			u.setPath(path.join(QLatin1String("/")));
+			qmReply.insert(QLatin1String("href"), u);
+		}
 
-			ack = true;
-		} else if (request.nodeName() == QLatin1String("url")) {
-			ServerHandlerPtr sh = g.getCurrentServerHandler();
-			if (sh && sh->isRunning() && g.uiSession) {
-				QString host, user, pw;
-				unsigned short port;
-				QUrl u;
-
-				sh->getConnectionInfo(host, port, user, pw);
-				u.setScheme(QLatin1String("mumble"));
-				u.setHost(host);
-				u.setPort(port);
-				u.setUserName(user);
-				u.addQueryItem(QLatin1String("version"), QLatin1String("1.2.0"));
-				QStringList path;
-				Channel *c = ClientUser::get(g.uiSession)->cChannel;
-				while (c->cParent) {
-					path.prepend(c->qsName);
-					c = c->cParent;
-				}
-				u.setPath(path.join(QLatin1String("/")));
-				qmReply.insert(QLatin1String("href"), u);
-			}
-
-			iter = qmRequest.find(QLatin1String("href"));
-			if (iter != qmRequest.constEnd()) {
-				QUrl u = iter.value().toUrl();
-				if (u.isValid() && u.scheme() == QLatin1String("mumble")) {
-					OpenURLEvent *oue = new OpenURLEvent(u);
-					qApp->postEvent(g.mw, oue);
-					ack = true;
-				}
-			} else {
+		iter = qmRequest.find(QLatin1String("href"));
+		if (iter != qmRequest.constEnd()) {
+			QUrl u = iter.value().toUrl();
+			if (u.isValid() && u.scheme() == QLatin1String("mumble")) {
+				OpenURLEvent *oue = new OpenURLEvent(u);
+				qApp->postEvent(g.mw, oue);
 				ack = true;
 			}
+		} else {
+			ack = true;
 		}
-
-		QDomDocument replydoc;
-		QDomElement reply = replydoc.createElement(QLatin1String("reply"));
-
-		qmReply.insert(QLatin1String("succeeded"), ack);
-
-		for (iter = qmReply.constBegin(); iter != qmReply.constEnd(); ++iter) {
-			QDomElement elem = replydoc.createElement(iter.key());
-			QDomText text = replydoc.createTextNode(iter.value().toString());
-			elem.appendChild(text);
-			reply.appendChild(elem);
-		}
-
-		replydoc.appendChild(reply);
-
-		qlsSocket->write(replydoc.toByteArray());
 	}
+
+	QString reply;
+	QXmlStreamWriter stream(&reply);
+
+	stream.writeStartDocument();
+	stream.writeStartElement(QLatin1String("reply"));
+
+	qmReply.insert(QLatin1String("succeeded"), ack);
+
+	for (iter = qmReply.constBegin(); iter != qmReply.constEnd(); ++iter) {
+		stream.writeTextElement(iter.key(), iter.value().toString());
+	}
+
+	stream.writeEndElement();
+	stream.writeEndDocument();
+
+	qlsSocket->write(reply.toUtf8());
 }
 
 SocketRPC::SocketRPC(const QString &basename, QObject *p) : QObject(p) {
@@ -249,17 +253,20 @@ bool SocketRPC::send(const QString &basename, const QString &request, const QMap
 		return false;
 	}
 
-	QDomDocument requestdoc;
-	QDomElement req = requestdoc.createElement(request);
-	for (QMap<QString, QVariant>::const_iterator iter = param.constBegin(); iter != param.constEnd(); ++iter) {
-		QDomElement elem = requestdoc.createElement(iter.key());
-		QDomText text = requestdoc.createTextNode(iter.value().toString());
-		elem.appendChild(text);
-		req.appendChild(elem);
-	}
-	requestdoc.appendChild(req);
+	QString requestxml;
+	QXmlStreamWriter stream(&requestxml);
 
-	qls.write(requestdoc.toByteArray());
+	stream.writeStartDocument();
+	stream.writeStartElement(request);
+
+	for (QMap<QString, QVariant>::const_iterator iter = param.constBegin(); iter != param.constEnd(); ++iter) {
+		stream.writeTextElement(iter.key(), iter.value().toString());
+	}
+
+	stream.writeEndElement();
+	stream.writeEndDocument();
+
+	qls.write(requestxml.toUtf8());
 	qls.flush();
 
 	if (! qls.waitForReadyRead(2000)) {
@@ -268,13 +275,28 @@ bool SocketRPC::send(const QString &basename, const QString &request, const QMap
 
 	QByteArray qba = qls.readAll();
 
-	QDomDocument replydoc;
-	replydoc.setContent(qba);
+	QString success;
+#if QT_VERSION < 0x040600
+	QXmlStreamReaderCompat xml(qba);
+#else
+	QXmlStreamReader xml(qba);
+#endif
 
-	QDomElement succ = replydoc.firstChildElement(QLatin1String("reply"));
-	succ = succ.firstChildElement(QLatin1String("succeeded"));
-	if (succ.isNull())
+	bool found = false;
+	while (xml.readNext()) {
+		if (found && xml.isEndElement())
+			break;
+		if (found && xml.isStartElement())
+			if (xml.name() == QLatin1String("succeeded"))
+				success = xml.readElementText();
+			else
+				xml.skipCurrentElement();
+		if (!found && xml.isStartElement() && xml.name() == QLatin1String("reply"))
+			found = true;
+	}
+
+	if (success.isNull())
 		return false;
 
-	return QVariant(succ.text()).toBool();
+	return QVariant(success).toBool();
 }

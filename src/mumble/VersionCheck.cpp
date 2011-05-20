@@ -33,6 +33,10 @@
 #include "MainWindow.h"
 #include "WebFetch.h"
 
+#if QT_VERSION < 0x040600
+#include "QXmlStreamReaderCompat.h"
+#endif
+
 VersionCheck::VersionCheck(bool autocheck, QObject *p, bool focus) : QObject(p) {
 	bSilent = autocheck;
 
@@ -83,13 +87,27 @@ void VersionCheck::fetched(QByteArray a, QUrl url) {
 #ifndef Q_OS_WIN
 				g.mw->msgBox(QString::fromUtf8(a));
 #else
-				QDomDocument qdd;
-				qdd.setContent(a);
 
-				QDomElement elem = qdd.firstChildElement(QLatin1String("p"));
-				elem = elem.firstChildElement(QLatin1String("a"));
+				bool found = false;
+#if QT_VERSION < 0x040600
+				QXmlStreamReaderCompat xml(a);
+#else
+				QXmlStreamReader xml(a);
+#endif
 
-				QUrl fetch = QUrl(elem.attribute(QLatin1String("href")));
+				while (xml.readNext()) {
+					if (found && xml.isEndElement())
+						break;
+					if (found && xml.isStartElement())
+						if (xml.name() == QLatin1String("a"))
+							break;
+						else
+							xml.skipCurrentElement();
+					if (!found && xml.isStartElement() && xml.name() == QLatin1String("p"))
+						found = true;
+				}
+
+				QUrl fetch = QUrl(xml.attributes().value(QLatin1String("href")).toString());
 				fetch.setHost(QString());
 				fetch.setScheme(QString());
 				if (! fetch.isValid()) {

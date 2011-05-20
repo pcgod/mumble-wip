@@ -37,6 +37,10 @@
 #include "../../plugins/mumble_plugin.h"
 #include "Global.h"
 
+#if QT_VERSION < 0x040600
+#include "QXmlStreamReaderCompat.h"
+#endif
+
 static ConfigWidget *PluginConfigDialogNew(Settings &st) {
 	return new PluginConfig(st);
 }
@@ -484,21 +488,22 @@ void Plugins::fetched(QByteArray data, QUrl url) {
 	const QString &path = url.path();
 	if (path == QLatin1String("/plugins.php")) {
 		qmPluginHash.clear();
-		QDomDocument doc;
-		doc.setContent(data);
 
-		QDomElement root=doc.documentElement();
-		QDomNode n = root.firstChild();
-		while (!n.isNull()) {
-			QDomElement e = n.toElement();
-			if (!e.isNull()) {
-				if (e.tagName() == QLatin1String("plugin")) {
-					QString name = QFileInfo(e.attribute(QLatin1String("name"))).fileName();
-					QString hash = e.attribute(QLatin1String("hash"));
-					qmPluginHash.insert(name, hash);
-				}
+#if QT_VERSION < 0x040600
+		QXmlStreamReaderCompat xml(data);
+#else
+		QXmlStreamReader xml(data);
+#endif
+		xml.readNextStartElement();
+		Q_ASSERT(xml.name() == QLatin1String("plugins"));
+
+		while (xml.readNextStartElement()) {
+			if (xml.name() == QLatin1String("plugin")) {
+				QString name = QFileInfo(xml.attributes().value(QLatin1String("name")).toString()).fileName();
+				QString hash = xml.attributes().value(QLatin1String("hash")).toString();
+				qmPluginHash.insert(name, hash);
 			}
-			n = n.nextSibling();
+			xml.skipCurrentElement();
 		}
 
 		QDir qd(qsSystemPlugins, QString(), QDir::Name, QDir::Files | QDir::Readable);

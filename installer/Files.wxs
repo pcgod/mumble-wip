@@ -224,9 +224,6 @@
       <Component Id="QtSvg4.dll">
         <File Source="$(var.QtDir)\bin\QtSvg4.dll" KeyPath="yes" />
       </Component>
-      <Component Id="QtXml4.dll">
-        <File Source="$(var.QtDir)\bin\QtXml4.dll" KeyPath="yes" />
-      </Component>
     </DirectoryRef>
   </Fragment>
 
@@ -293,7 +290,6 @@
       <ComponentRef Id="QtNetwork4.dll" />
       <ComponentRef Id="QtSql4.dll" />
       <ComponentRef Id="QtSvg4.dll" />
-      <ComponentRef Id="QtXml4.dll" />
 
       <ComponentRef Id="qtaccessiblewidgets4.dll" />
       <ComponentRef Id="qsvgicon4.dll" />

@@ -41,6 +41,10 @@
 #include "MainWindow.h"
 #include "GlobalShortcut.h"
 
+#if QT_VERSION < 0x040600
+#include "QXmlStreamReaderCompat.h"
+#endif
+
 OverlayAppInfo::OverlayAppInfo(QString name, QIcon icon) {
 	qsDisplayName = name;
 	qiIcon = icon;
@@ -362,21 +366,21 @@ void Overlay::fetched(QByteArray data, QUrl url) {
 	const QString &path = url.path();
 	if (path == QLatin1String("/overlay.php")) {
 		qmOverlayHash.clear();
-		QDomDocument doc;
-		doc.setContent(data);
 
-		QDomElement root=doc.documentElement();
-		QDomNode n = root.firstChild();
-		while (!n.isNull()) {
-			QDomElement e = n.toElement();
-			if (!e.isNull()) {
-				if (e.tagName() == QLatin1String("file")) {
-					QString name = QFileInfo(e.attribute(QLatin1String("name"))).fileName();
-					QString hash = e.attribute(QLatin1String("hash"));
-					qmOverlayHash.insert(name, hash);
-				}
+#if QT_VERSION < 0x040600
+		QXmlStreamReaderCompat xml(data);
+#else
+		QXmlStreamReader xml(data);
+#endif
+		xml.readNextStartElement();
+
+		while (xml.readNextStartElement()) {
+			if (xml.name() == QLatin1String("file")) {
+				QString name = QFileInfo(xml.attributes().value(QLatin1String("name")).toString()).fileName();
+				QString hash = xml.attributes().value(QLatin1String("hash")).toString();
+				qmOverlayHash.insert(name, hash);
 			}
-			n = n.nextSibling();
+			xml.skipCurrentElement();
 		}
 
 #ifdef Q_OS_MAC

@@ -28,8 +28,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <QtXml>
-
 #include "Usage.h"
 #include "Version.h"
 #include "Global.h"
@@ -63,40 +61,26 @@ void Usage::registerUsage() {
 	if (! g.s.bUsage || g.s.uiUpdateCounter == 0) // Only register usage if allowed by the user and first wizard run has finished
 		return;
 
-	QDomDocument doc;
-	QDomElement root=doc.createElement(QLatin1String("usage"));
-	doc.appendChild(root);
+	QString usagexml;
+	QXmlStreamWriter stream(&usagexml);
 
-	QDomElement tag;
-	QDomText t;
+	stream.writeStartDocument();
+	stream.writeStartElement(QLatin1String("usage"));
 
-	OSInfo::fillXml(doc, root);
+	OSInfo::fillXml(stream);
 
-	tag=doc.createElement(QLatin1String("in"));
-	root.appendChild(tag);
-	t=doc.createTextNode(g.s.qsAudioInput);
-	tag.appendChild(t);
+	stream.writeTextElement(QLatin1String("in"), g.s.qsAudioInput);
+	stream.writeTextElement(QLatin1String("out"), g.s.qsAudioOutput);
+	stream.writeTextElement(QLatin1String("lcd"), QString::number(g.lcd->hasDevices() ? 1 : 0));
 
-	tag=doc.createElement(QLatin1String("out"));
-	root.appendChild(tag);
-	t=doc.createTextNode(g.s.qsAudioOutput);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("lcd"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QString::number(g.lcd->hasDevices() ? 1 : 0));
-	tag.appendChild(t);
-
-	QBuffer *qb = new QBuffer();
-	qb->setData(doc.toString().toUtf8());
-	qb->open(QIODevice::ReadOnly);
+	stream.writeEndElement();
+	stream.writeEndDocument();
 
 	QNetworkRequest req(QUrl(QLatin1String("http://mumble.info/usage.cgi")));
 	Network::prepareRequest(req);
 	req.setHeader(QNetworkRequest::ContentTypeHeader, QLatin1String("text/xml"));
 
-	QNetworkReply *rep = g.nam->post(req, qb);
-	qb->setParent(rep);
+	QNetworkReply *rep = g.nam->post(req, usagexml.toUtf8());
 
 	connect(rep, SIGNAL(finished()), rep, SLOT(deleteLater()));
 }

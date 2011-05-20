@@ -56,61 +56,31 @@ void Server::update() {
 
 	qtTick.start(1000 * (60 * 60 + (qrand() % 300)));
 
-	QDomDocument doc;
-	QDomElement root=doc.createElement(QLatin1String("server"));
-	doc.appendChild(root);
+	QString regxml;
+	QXmlStreamWriter stream(&regxml);
 
-	OSInfo::fillXml(doc, root, meta->qsOS, meta->qsOSVersion, qlBind);
+#if QT_VERSION >= 0x040500
+	stream.writeStartDocument();
+#endif
+	stream.writeStartElement(QLatin1String("server"));
 
-	QDomElement tag;
-	QDomText t;
+	OSInfo::fillXml(stream, meta->qsOS, meta->qsOSVersion, qlBind);
 
-	tag=doc.createElement(QLatin1String("name"));
-	root.appendChild(tag);
-	t=doc.createTextNode(qsRegName);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("host"));
-	root.appendChild(tag);
-	t=doc.createTextNode(qsRegHost);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("password"));
-	root.appendChild(tag);
-	t=doc.createTextNode(qsRegPassword);
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("port"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QString::number(usPort));
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("url"));
-	root.appendChild(tag);
-	t=doc.createTextNode(qurlRegWeb.toString());
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("digest"));
-	root.appendChild(tag);
-	t=doc.createTextNode(getDigest());
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("users"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QString::number(qhUsers.count()));
-	tag.appendChild(t);
-
-	tag=doc.createElement(QLatin1String("channels"));
-	root.appendChild(tag);
-	t=doc.createTextNode(QString::number(qhChannels.count()));
-	tag.appendChild(t);
+	stream.writeTextElement(QLatin1String("name"), qsRegName);
+	stream.writeTextElement(QLatin1String("host"), qsRegHost);
+	stream.writeTextElement(QLatin1String("password"), qsRegPassword);
+	stream.writeTextElement(QLatin1String("port"), QString::number(usPort));
+	stream.writeTextElement(QLatin1String("url"), qurlRegWeb.toString());
+	stream.writeTextElement(QLatin1String("digest"), getDigest());
+	stream.writeTextElement(QLatin1String("users"), QString::number(qhUsers.count()));
+	stream.writeTextElement(QLatin1String("channels"), QString::number(qhChannels.count()));
 
 	if (!qsRegLocation.isEmpty()) {
-		tag=doc.createElement(QLatin1String("location"));
-		root.appendChild(tag);
-		t=doc.createTextNode(qsRegLocation);
-		tag.appendChild(t);
+		stream.writeTextElement(QLatin1String("location"), qsRegLocation);
 	}
+
+	stream.writeEndElement();
+	stream.writeEndDocument();
 
 	QNetworkRequest qnr(QUrl(QLatin1String("https://mumble.hive.no/register.cgi")));
 	qnr.setHeader(QNetworkRequest::ContentTypeHeader, QLatin1String("text/xml"));
@@ -127,7 +97,7 @@ void Server::update() {
 
 	qnr.setSslConfiguration(ssl);
 
-	QNetworkReply *rep = qnamNetwork->post(qnr, doc.toString().toUtf8());
+	QNetworkReply *rep = qnamNetwork->post(qnr, regxml.toUtf8());
 	connect(rep, SIGNAL(finished()), this, SLOT(finished()));
 	connect(rep, SIGNAL(sslErrors(const QList<QSslError> &)), this, SLOT(regSslError(const QList<QSslError> &)));
 }

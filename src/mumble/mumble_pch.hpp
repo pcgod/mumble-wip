@@ -35,7 +35,6 @@
 #endif
 #include <QtNetwork/QtNetwork>
 #include <QtSql/QtSql>
-#include <QtXml/QtXml>
 
 #include <openssl/aes.h>
 #include <openssl/rand.h>

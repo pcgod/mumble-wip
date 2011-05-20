@@ -41,6 +41,10 @@
 #include "bonjourserviceresolver.h"
 #endif
 
+#if QT_VERSION < 0x040600
+#include "QXmlStreamReaderCompat.h"
+#endif
+
 QMap<QString, QIcon> ServerItem::qmIcons;
 QList<PublicInfo> ConnectDialog::qlPublicServers;
 QString ConnectDialog::qsUserCountry, ConnectDialog::qsUserCountryCode, ConnectDialog::qsUserContinentCode;
@@ -1493,34 +1497,36 @@ void ConnectDialog::fetched(QByteArray data, QUrl url, QMap<QString, QString> he
 		return;
 	}
 
-	QDomDocument doc;
-	doc.setContent(data);
+#if QT_VERSION < 0x040600
+	QXmlStreamReaderCompat xml(data);
+#else
+	QXmlStreamReader xml(data);
+#endif
 
 	qlPublicServers.clear();
 	qsUserCountry = headers.value(QLatin1String("Geo-Country"));
 	qsUserCountryCode = headers.value(QLatin1String("Geo-Country-Code")).toLower();
 	qsUserContinentCode = headers.value(QLatin1String("Geo-Continent-Code")).toLower();
 
-	QDomElement root=doc.documentElement();
-	QDomNode n = root.firstChild();
-	while (!n.isNull()) {
-		QDomElement e = n.toElement();
-		if (!e.isNull()) {
-			if (e.tagName() == QLatin1String("server")) {
-				PublicInfo pi;
-				pi.qsName = e.attribute(QLatin1String("name"));
-				pi.quUrl = e.attribute(QLatin1String("url"));
-				pi.qsIp = e.attribute(QLatin1String("ip"));
-				pi.usPort = e.attribute(QLatin1String("port")).toUShort();
-				pi.qsCountry = e.attribute(QLatin1String("country"));
-				pi.qsCountryCode = e.attribute(QLatin1String("country_code")).toLower();
-				pi.qsContinentCode = e.attribute(QLatin1String("continent_code")).toLower();
-				pi.bCA = e.attribute(QLatin1String("ca")).toInt() ? true : false;
+	xml.readNextStartElement();
+	Q_ASSERT(xml.name() == QLatin1String("servers"));
 
-				qlPublicServers << pi;
-			}
+	while (xml.readNextStartElement()) {
+		if (xml.name() == QLatin1String("server")) {
+			QXmlStreamAttributes attr = xml.attributes();
+			PublicInfo pi;
+			pi.qsName = attr.value(QLatin1String("name")).toString();
+			pi.quUrl = attr.value(QLatin1String("url")).toString();
+			pi.qsIp = attr.value(QLatin1String("ip")).toString();
+			pi.usPort = attr.value(QLatin1String("port")).toString().toUShort();
+			pi.qsCountry = attr.value(QLatin1String("country")).toString();
+			pi.qsCountryCode = attr.value(QLatin1String("country_code")).toString().toLower();
+			pi.qsContinentCode = attr.value(QLatin1String("continent_code")).toString().toLower();
+			pi.bCA = attr.value(QLatin1String("ca")).toString().toInt() ? true : false;
+
+			qlPublicServers << pi;
 		}
-		n = n.nextSibling();
+		xml.skipCurrentElement();
 	}
 
 	tPublicServers.restart();

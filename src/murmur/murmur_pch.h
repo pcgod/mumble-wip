@@ -19,7 +19,6 @@
 #include <QtCore/QtCore>
 #include <QtNetwork/QtNetwork>
 #include <QtSql/QtSql>
-#include <QtXml/QtXml>
 #ifdef USE_DBUS
 #include <QtDBus/QtDBus>
 #endif

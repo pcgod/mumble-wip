@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2011, Thorvald Natvig <thorvald@natvig.com>
+/* Copyright (C) 2011, Benjamin Jemlich <pcgod@users.sourceforge.net>
 
    All rights reserved.
 
@@ -26,19 +26,45 @@
    LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
    NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
 
-#ifndef _OSINFO_H
-#define _OSINFO_H
+#include <mumble_pch.hpp>
 
-#include "murmur_pch.h"
-
-class OSInfo {
+class QXmlStreamReaderCompat : public QXmlStreamReader {
 	public:
-		static QString getMacHash(const QList<QHostAddress> & = QList<QHostAddress>());
-		static QString getOS();
-		static QString getOSVersion();
-		static void fillXml(QXmlStreamWriter &stream, const QString &os = OSInfo::getOS(), const QString &osver = OSInfo::getOSVersion(), const QList<QHostAddress> & = QList<QHostAddress>());
+		QXmlStreamReaderCompat(QByteArray& ba) : QXmlStreamReader(ba) { }
+
+		QString readElementText() {
+			if (isStartElement()) {
+				QXmlStreamReader::TokenType token;
+				while (token = readNext()) {
+					if (token == QXmlStreamReader::Characters)
+						return QString(text().toString());
+					else
+						break;
+				}
+			}
+			return QString();
+		}
+
+		bool readNextStartElement() {
+			while (readNext()) {
+				if (isEndElement())
+					return false;
+				if (isStartElement())
+					return true;
+			}
+			return false;
+		}
+
+		void skipCurrentElement() {
+			int x = 1;
+			while (x && readNext()) {
+				if (isEndElement())
+					--x;
+				if (isStartElement())
+					++x;
+			}
+		}
 };
 
-#endif
