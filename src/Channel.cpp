@@ -34,178 +34,179 @@
 #include "ACL.h"
 
 #ifdef MUMBLE
-QHash<int, Channel *> Channel::c_qhChannels;
-QReadWriteLock Channel::c_qrwlChannels;
+QHash<int, Channel *> Channel::channel_list_;
+QReadWriteLock Channel::channel_lock_;
 #endif
 
-Channel::Channel(int id, const QString &name, QObject *p) : QObject(p) {
-	iId = id;
-	iPosition = 0;
-	qsName = name;
-	bInheritACL = true;
-	bTemporary = false;
-	cParent = qobject_cast<Channel *>(p);
-	if (cParent)
-		cParent->addChannel(this);
+Channel::Channel(int id, const QString &name, QObject *p) : QObject(p),
+	id_(id),
+	position_(0),
+	name_(name),
+	inherit_acl_(true),
+	temporary_(false),
+	parent_(qobject_cast<Channel *>(p))
 #ifdef MUMBLE
-	uiPermissions = 0;
+	, permissions_(0)
 #endif
+{
+	if (parent_)
+		parent_->addChannel(this);
 }
 
 Channel::~Channel() {
-	if (cParent)
-		cParent->removeChannel(this);
+	if (parent_)
+		parent_->removeChannel(this);
 
-	foreach(Channel *c, qlChannels)
+	foreach(Channel *c, channels_)
 		delete c;
 
-	foreach(ChanACL *acl, qlACL)
+	foreach(ChanACL *acl, acls_)
 		delete acl;
-	foreach(Group *g, qhGroups)
+	foreach(Group *g, groups_)
 		delete g;
-	foreach(Channel *l, qsPermLinks)
+	foreach(Channel *l, links_)
 		unlink(l);
 
-	Q_ASSERT(qlChannels.count() == 0);
+	Q_ASSERT(channels_.count() == 0);
 	Q_ASSERT(children().count() == 0);
 }
 
 int Channel::id() const {
-	return iId;
+	return id_;
 }
 
 const QString &Channel::name() const {
-	return qsName;
+	return name_;
 }
 
 const QString &Channel::description() const {
-	return qsDesc;
+	return description_;
 }
 
 const QByteArray &Channel::description_hash() const {
-	return qbaDescHash;
+	return description_hash_;
 }
 
 int Channel::position() const {
-	return iPosition;
+	return position_;
 }
 
 Channel *Channel::parent() const {
-	return cParent;
+	return parent_;
 }
 
 bool Channel::temporary() const {
-	return bTemporary;
+	return temporary_;
 }
 
 bool Channel::inherit_acl() const {
-	return bInheritACL;
+	return inherit_acl_;
 }
 
 const QList<Channel *> &Channel::channels() const {
-	return qlChannels;
+	return channels_;
 }
 
 const QList<User *> &Channel::users() const {
-	return qlUsers;
+	return users_;
 }
 
 const QHash<QString, Group *> &Channel::groups() const {
-	return qhGroups;
+	return groups_;
 }
 
 const QList<ChanACL *> &Channel::acls() const {
-	return qlACL;
+	return acls_;
 }
 
 const QSet<Channel *> &Channel::links() const {
-	return qsPermLinks;
+	return links_;
 }
 
 void Channel::set_name(const QString &name) {
-	qsName = name;
+	name_ = name;
 }
 
 void Channel::set_position(int position) {
-	iPosition = position;
+	position_ = position;
 }
 
 void Channel::set_description(const QString &description) {
-	qsDesc = description;
+	description_ = description;
 }
 
 void Channel::set_description_hash(const QByteArray &description_hash) {
-	qbaDescHash = description_hash;
+	description_hash_ = description_hash;
 }
 
 void Channel::set_temporary(bool temporary) {
-	bTemporary = temporary;
+	temporary_ = temporary;
 }
 
 void Channel::set_inherit_acl(bool inherit_acl) {
-	bInheritACL = inherit_acl;
+	inherit_acl_ = inherit_acl;
 }
 
 #ifdef MUMBLE
 void Channel::resetPermissions() {
-	foreach(Channel *c, c_qhChannels)
+	foreach(Channel *c, channel_list_)
 		c->set_permissions(0);
 }
 
 Channel *Channel::get(int id) {
-	QReadLocker lock(&c_qrwlChannels);
-	return c_qhChannels.value(id);
+	QReadLocker lock(&channel_lock_);
+	return channel_list_.value(id);
 }
 
 Channel *Channel::add(int id, const QString &name) {
-	QWriteLocker lock(&c_qrwlChannels);
+	QWriteLocker lock(&channel_lock_);
 
-	if (c_qhChannels.contains(id))
+	if (channel_list_.contains(id))
 		return NULL;
 
 	Channel *c = new Channel(id, name, NULL);
-	c_qhChannels.insert(id, c);
+	channel_list_.insert(id, c);
 	return c;
 }
 
 void Channel::remove(Channel *c) {
-	QWriteLocker lock(&c_qrwlChannels);
-	c_qhChannels.remove(c->iId);
+	QWriteLocker lock(&channel_lock_);
+	channel_list_.remove(c->id_);
 }
 
 unsigned int Channel::permissions() const {
-	return uiPermissions;
+	return permissions_;
 }
 
 void Channel::set_permissions(unsigned int permissions) {
-	uiPermissions = permissions;
+	permissions_ = permissions;
 }
 #endif
 
 bool Channel::lessThan(const Channel *first, const Channel *second) {
-	if ((first->iPosition != second->iPosition) && (first->cParent == second->cParent))
-		return first->iPosition < second->iPosition;
+	if ((first->position_ != second->position_) && (first->parent_ == second->parent_))
+		return first->position_ < second->position_;
 	else
-		return QString::localeAwareCompare(first->qsName, second->qsName) < 0;
+		return QString::localeAwareCompare(first->name_, second->name_) < 0;
 }
 
 bool Channel::isLinked(Channel *l) const {
-	return ((l == this) || qsPermLinks.contains(l));
+	return ((l == this) || links_.contains(l));
 }
 
 void Channel::link(Channel *l) {
-	if (qsPermLinks.contains(l))
+	if (links_.contains(l))
 		return;
-	qsPermLinks.insert(l);
-	l->qsPermLinks.insert(this);
+	links_.insert(l);
+	l->links_.insert(this);
 }
 
 void Channel::unlink(Channel *l) {
 	if (l) {
-		qsPermLinks.remove(l);
-		l->qsPermLinks.remove(this);
+		links_.remove(l);
+		l->links_.remove(this);
 	} else {
-		foreach(Channel *c, qsPermLinks)
+		foreach(Channel *c, links_)
 			unlink(c);
 	}
 }
@@ -213,7 +214,7 @@ void Channel::unlink(Channel *l) {
 const QSet<Channel *> Channel::allLinks() {
 	QSet<Channel *> seen;
 	seen.insert(this);
-	if (qsPermLinks.isEmpty())
+	if (links_.isEmpty())
 		return seen;
 
 	Channel *l, *lnk;
@@ -222,7 +223,7 @@ const QSet<Channel *> Channel::allLinks() {
 
 	while (! stack.isEmpty()) {
 		lnk = stack.pop();
-		foreach(l, lnk->qsPermLinks) {
+		foreach(l, lnk->links_) {
 			if (! seen.contains(l)) {
 				seen.insert(l);
 				stack.push(l);
@@ -234,15 +235,15 @@ const QSet<Channel *> Channel::allLinks() {
 
 const QSet<Channel *> Channel::allChildren() {
 	QSet<Channel *> seen;
-	if (! qlChannels.isEmpty()) {
+	if (! channels_.isEmpty()) {
 		QStack<Channel *> stack;
 		stack.push(this);
 
 		while (! stack.isEmpty()) {
 			Channel *c = stack.pop();
-			foreach(Channel *chld, c->qlChannels) {
+			foreach(Channel *chld, c->channels_) {
 				seen.insert(chld);
-				if (! chld->qlChannels.isEmpty())
+				if (! chld->channels_.isEmpty())
 					stack.append(chld);
 			}
 		}
@@ -251,63 +252,63 @@ const QSet<Channel *> Channel::allChildren() {
 }
 
 void Channel::addAcl(ChanACL *a) {
-	qlACL << a;
+	acls_ << a;
 }
 
 void Channel::removeAcl(ChanACL *a) {
-	qlACL.removeAll(a);
+	acls_.removeAll(a);
 }
 
 void Channel::clearAcls() {
-	qlACL.clear();
+	acls_.clear();
 }
 
 void Channel::addGroup(Group *group, const QString &name) {
-	qhGroups[name] = group;
+	groups_[name] = group;
 }
 
 Group *Channel::findGroup(const QString &name) {
-	return qhGroups.value(name);
+	return groups_.value(name);
 }
 
 void Channel::clearGroups() {
-	qhGroups.clear();
+	groups_.clear();
 }
 
 void Channel::addChannel(Channel *c) {
-	c->cParent = this;
+	c->parent_ = this;
 	c->setParent(this);
-	qlChannels << c;
+	channels_ << c;
 }
 
 void Channel::removeChannel(Channel *c) {
-	c->cParent = NULL;
+	c->parent_ = NULL;
 	c->setParent(NULL);
-	qlChannels.removeAll(c);
+	channels_.removeAll(c);
 }
 
 void Channel::addUser(User *p) {
 	if (p->cChannel)
 		p->cChannel->removeUser(p);
 	p->cChannel = this;
-	qlUsers << p;
+	users_ << p;
 }
 
 void Channel::removeUser(User *p) {
-	qlUsers.removeAll(p);
+	users_.removeAll(p);
 }
 
 int Channel::linkCount() const {
-	return qsPermLinks.count();
+	return links_.count();
 }
 
 int Channel::userCount() const {
-	return qlUsers.count();
+	return users_.count();
 }
 
 Channel::operator const QString() const {
-	return QString::fromLatin1("%1[%2:%3%4]").arg(qsName,
-	        QString::number(iId),
-	        QString::number(cParent ? cParent->iId : -1),
-	        bTemporary ? QLatin1String("*") : QLatin1String(""));
+	return QString::fromLatin1("%1[%2:%3%4]").arg(name_,
+	        QString::number(id_),
+	        QString::number(parent_ ? parent_->id_ : -1),
+	        temporary_ ? QLatin1String("*") : QLatin1String(""));
 }

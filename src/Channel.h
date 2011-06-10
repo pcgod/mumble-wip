@@ -43,28 +43,28 @@ class Channel : public QObject {
 		Q_OBJECT
 		Q_DISABLE_COPY(Channel)
 
-		int iId;
-		int iPosition;
-		bool bInheritACL;
-		bool bTemporary;
+		int id_;
+		int position_;
+		bool inherit_acl_;
+		bool temporary_;
 
-		QSet<Channel *> qsUnseen;
-		Channel *cParent;
-		QString qsName;
-		QString qsDesc;
-		QByteArray qbaDescHash;
-		QList<Channel *> qlChannels;
-		QList<User *> qlUsers;
-		QHash<QString, Group *> qhGroups;
-		QList<ChanACL *> qlACL;
+		QSet<Channel *> unseen_;
+		Channel *parent_;
+		QString name_;
+		QString description_;
+		QByteArray description_hash_;
+		QList<Channel *> channels_;
+		QList<User *> users_;
+		QHash<QString, Group *> groups_;
+		QList<ChanACL *> acls_;
 
-		QSet<Channel *> qsPermLinks;
+		QSet<Channel *> links_;
 
 #ifdef MUMBLE
-		unsigned int uiPermissions;
+		unsigned int permissions_;
 
-		static QHash<int, Channel *> c_qhChannels;
-		static QReadWriteLock c_qrwlChannels;
+		static QHash<int, Channel *> channel_list_;
+		static QReadWriteLock channel_lock_;
 
 	public:
 		static Channel *get(int);
