@@ -439,6 +439,7 @@ static MumblePlugin2 wowplug2 = {
 	trylock
 };
 
+#if 0
 extern "C" __declspec(dllexport) MumblePlugin *getMumblePlugin() {
 	return &wowplug;
 }
@@ -446,3 +447,5 @@ extern "C" __declspec(dllexport) MumblePlugin *getMumblePlugin() {
 extern "C" __declspec(dllexport) MumblePlugin2 *getMumblePlugin2() {
 	return &wowplug2;
 }
+#endif
+
