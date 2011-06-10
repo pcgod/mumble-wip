@@ -310,14 +310,14 @@ void OverlayUserGroup::updateUsers() {
 		switch (os->osShow) {
 			case OverlaySettings::LinkedChannels:
 				foreach(Channel *c, home->allLinks())
-					foreach(User *p, c->qlUsers)
+					foreach(User *p, c->users())
 						showusers << static_cast<ClientUser *>(p);
 				foreach(ClientUser *cu, ClientUser::getTalking())
 					if (! showusers.contains(cu))
 						showusers << cu;
 				break;
 			case OverlaySettings::HomeChannel:
-				foreach(User *p, home->qlUsers)
+				foreach(User *p, home->users())
 					showusers << static_cast<ClientUser *>(p);
 				foreach(ClientUser *cu, ClientUser::getTalking())
 					if (! showusers.contains(cu))

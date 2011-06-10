@@ -180,9 +180,9 @@ void OverlayUser::updateUser() {
 		}
 	}
 
-	if (os->bChannel && (qgpiChannel->pixmap().isNull() || (cuUser && (qsChannelName != cuUser->cChannel->qsName)))) {
+	if (os->bChannel && (qgpiChannel->pixmap().isNull() || (cuUser && (qsChannelName != cuUser->cChannel->name())))) {
 		if (cuUser)
-			qsChannelName = cuUser->cChannel->qsName;
+			qsChannelName = cuUser->cChannel->name();
 
 		const QPixmap &pm = OverlayTextLine(qsChannelName, os->qfChannel).createPixmap(SCALESIZE(Channel), os->qcChannel);
 		qgpiChannel->setPixmap(pm);

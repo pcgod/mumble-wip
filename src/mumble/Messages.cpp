@@ -126,7 +126,7 @@ void MainWindow::msgServerSync(const MumbleProto::ServerSync &msg) {
 	ClientUser *p=ClientUser::get(g.uiSession);
 	connect(p, SIGNAL(talkingChanged()), this, SLOT(talkingChanged()));
 
-	qstiIcon->setToolTip(tr("Mumble: %1").arg(Channel::get(0)->qsName));
+	qstiIcon->setToolTip(tr("Mumble: %1").arg(Channel::get(0)->name()));
 
 	// Update QActions and menues
 	on_qmServer_aboutToShow();
@@ -498,7 +498,7 @@ void MainWindow::msgChannelState(const MumbleProto::ChannelState &msg) {
 	if (!c) {
 		if (msg.has_parent() && p && msg.has_name()) {
 			c = pmModel->addChannel(msg.channel_id(), p, u8(msg.name()));
-			c->bTemporary = msg.temporary();
+			c->set_temporary(msg.temporary());
 			p = NULL;
 		} else {
 			return;
@@ -510,7 +510,7 @@ void MainWindow::msgChannelState(const MumbleProto::ChannelState &msg) {
 		while (pp) {
 			if (pp == c)
 				return;
-			pp = pp->cParent;
+			pp = pp->parent();
 		}
 		pmModel->moveChannel(c, p);
 	}
@@ -562,7 +562,7 @@ void MainWindow::msgChannelState(const MumbleProto::ChannelState &msg) {
 
 void MainWindow::msgChannelRemove(const MumbleProto::ChannelRemove &msg) {
 	Channel *c = Channel::get(msg.channel_id());
-	if (c && (c->iId != 0))
+	if (c && (c->id() != 0))
 		pmModel->removeChannel(c);
 }
 
@@ -696,21 +696,20 @@ void MainWindow::msgPermissionQuery(const MumbleProto::PermissionQuery &msg) {
 	Channel *current = pmModel->getChannel(qtvUsers->currentIndex());
 
 	if (msg.flush()) {
-		foreach(Channel *c, Channel::c_qhChannels)
-			c->uiPermissions = 0;
+		Channel::resetPermissions();
 
 		// We always need the permissions of the current focus channel
-		if (current && current->iId != static_cast<int>(msg.channel_id())) {
-			g.sh->requestChannelPermissions(current->iId);
+		if (current && current->id() != static_cast<int>(msg.channel_id())) {
+			g.sh->requestChannelPermissions(current->id());
 
-			current->uiPermissions = ChanACL::All;
+			current->set_permissions(ChanACL::All);
 		}
 	}
 	Channel *c = Channel::get(msg.channel_id());
 	if (c) {
-		c->uiPermissions = msg.permissions();
-		if (c->iId == 0)
-			g.pPermissions = static_cast<ChanACL::Permissions>(c->uiPermissions);
+		c->set_permissions(msg.permissions());
+		if (c->id() == 0)
+			g.pPermissions = static_cast<ChanACL::Permissions>(c->permissions());
 		if (c == current) {
 			updateMenuPermissions();
 		}

@@ -761,8 +761,8 @@ void MainWindow::findDesiredChannel() {
 			str = elem;
 		else
 			str = str + QLatin1String("/") + elem;
-		foreach(Channel *c, chan->qlChannels) {
-			if (c->qsName.toLower() == str) {
+		foreach(Channel *c, chan->channels()) {
+			if (c->name().toLower() == str) {
 				str = QString();
 				found = true;
 				chan = c;
@@ -772,7 +772,7 @@ void MainWindow::findDesiredChannel() {
 	}
 	if (found) {
 		if (chan != ClientUser::get(g.uiSession)->cChannel) {
-			g.sh->joinChannel(chan->iId);
+			g.sh->joinChannel(chan->id());
 		}
 		qtvUsers->setCurrentIndex(pmModel->index(chan));
 	} else if (g.uiSession) {
@@ -1515,8 +1515,8 @@ void MainWindow::sendChatbarMessage(QString qsText) {
 		if (c == NULL) // If no channel selected fallback to current one
 			c = ClientUser::get(g.uiSession)->cChannel;
 
-		g.sh->sendChannelTextMessage(c->iId, qsText, false);
-		g.l->log(Log::TextMessage, tr("To %1: %2").arg(Log::formatChannel(c), qsText), tr("Message to channel %1").arg(c->qsName), true);
+		g.sh->sendChannelTextMessage(c->id(), qsText, false);
+		g.l->log(Log::TextMessage, tr("To %1: %2").arg(Log::formatChannel(c), qsText), tr("Message to channel %1").arg(c->name()), true);
 	} else {
 		// User message
 		g.sh->sendUserTextMessage(p->uiSession, qsText);
@@ -1572,7 +1572,7 @@ void MainWindow::qmChannel_aboutToShow() {
 	cContextChannel = c;
 	qpContextPosition = QPoint();
 
-	if (c && c->iId != ClientUser::get(g.uiSession)->cChannel->iId) {
+	if (c && c->id() != ClientUser::get(g.uiSession)->cChannel->id()) {
 		qmChannel->addAction(qaChannelJoin);
 		qmChannel->addSeparator();
 	}
@@ -1614,12 +1614,12 @@ void MainWindow::qmChannel_aboutToShow() {
 
 		Channel *home = ClientUser::get(g.uiSession)->cChannel;
 
-		if (c && c->iId != 0) {
+		if (c && c->id() != 0) {
 			remove = true;
 		}
 		if (! c)
 			c = Channel::get(0);
-		unlinkall = (home->qhLinks.count() > 0);
+		unlinkall = (home->linkCount() > 0);
 		if (home != c) {
 			if (c->allLinks().contains(home))
 				unlink = true;
@@ -1642,7 +1642,7 @@ void MainWindow::on_qaChannelJoin_triggered() {
 	Channel *c = getContextMenuChannel();
 
 	if (c) {
-		g.sh->joinChannel(c->iId);
+		g.sh->joinChannel(c->id());
 	}
 }
 
@@ -1654,8 +1654,8 @@ void MainWindow::on_qaChannelAdd_triggered() {
 		aclEdit = NULL;
 	}
 
-	aclEdit = new ACLEditor(c ? c->iId : 0, this);
-	if (c && (c->uiPermissions & ChanACL::Cached) && !(c->uiPermissions & (ChanACL::Write | ChanACL::MakeChannel))) {
+	aclEdit = new ACLEditor(c ? c->id() : 0, this);
+	if (c && (c->permissions() & ChanACL::Cached) && !(c->permissions() & (ChanACL::Write | ChanACL::MakeChannel))) {
 		aclEdit->qcbChannelTemporary->setEnabled(false);
 		aclEdit->qcbChannelTemporary->setChecked(true);
 	}
@@ -1669,16 +1669,16 @@ void MainWindow::on_qaChannelRemove_triggered() {
 	if (! c)
 		return;
 
-	int id = c->iId;
+	int id = c->id();
 
-	ret=QMessageBox::question(this, QLatin1String("Mumble"), tr("Are you sure you want to delete %1 and all its sub-channels?").arg(c->qsName), QMessageBox::Yes, QMessageBox::No);
+	ret=QMessageBox::question(this, QLatin1String("Mumble"), tr("Are you sure you want to delete %1 and all its sub-channels?").arg(c->name()), QMessageBox::Yes, QMessageBox::No);
 
 	c = Channel::get(id);
 	if (!c)
 		return;
 
 	if (ret == QMessageBox::Yes) {
-		g.sh->removeChannel(c->iId);
+		g.sh->removeChannel(c->id());
 	}
 }
 
@@ -1686,11 +1686,11 @@ void MainWindow::on_qaChannelACL_triggered() {
 	Channel *c = getContextMenuChannel();
 	if (! c)
 		c = Channel::get(0);
-	int id = c->iId;
+	int id = c->id();
 
-	if (! c->qbaDescHash.isEmpty() && c->qsDesc.isEmpty()) {
-		c->qsDesc = QString::fromUtf8(Database::blob(c->qbaDescHash));
-		if (c->qsDesc.isEmpty()) {
+	if (! c->description_hash().isEmpty() && c->description().isEmpty()) {
+		c->set_description(QString::fromUtf8(Database::blob(c->description_hash())));
+		if (c->description().isEmpty()) {
 			MumbleProto::RequestBlob mprb;
 			mprb.add_channel_description(id);
 			g.sh->sendMessage(mprb);
@@ -1712,7 +1712,7 @@ void MainWindow::on_qaChannelLink_triggered() {
 	if (! l)
 		l = Channel::get(0);
 
-	g.sh->addChannelLink(c->iId, l->iId);
+	g.sh->addChannelLink(c->id(), l->id());
 }
 
 void MainWindow::on_qaChannelUnlink_triggered() {
@@ -1721,16 +1721,16 @@ void MainWindow::on_qaChannelUnlink_triggered() {
 	if (! l)
 		l = Channel::get(0);
 
-	g.sh->removeChannelLink(c->iId, l->iId);
+	g.sh->removeChannelLink(c->id(), l->id());
 }
 
 void MainWindow::on_qaChannelUnlinkAll_triggered() {
 	Channel *c = ClientUser::get(g.uiSession)->cChannel;
 
 	MumbleProto::ChannelState mpcs;
-	mpcs.set_channel_id(c->iId);
-	foreach(Channel *l, c->qsPermLinks)
-		mpcs.add_links_remove(l->iId);
+	mpcs.set_channel_id(c->id());
+	foreach(Channel *l, c->links())
+		mpcs.add_links_remove(l->id());
 	g.sh->sendMessage(mpcs);
 }
 
@@ -1740,9 +1740,9 @@ void MainWindow::on_qaChannelSendMessage_triggered() {
 	if (!c)
 		return;
 
-	int id = c->iId;
+	int id = c->id();
 
-	::TextMessage *texm = new ::TextMessage(this, tr("Sending message to channel %1").arg(c->qsName), true);
+	::TextMessage *texm = new ::TextMessage(this, tr("Sending message to channel %1").arg(c->name()), true);
 	int res = texm->exec();
 
 	c = Channel::get(id);
@@ -1751,9 +1751,9 @@ void MainWindow::on_qaChannelSendMessage_triggered() {
 		g.sh->sendChannelTextMessage(id, texm->message(), texm->bTreeMessage);
 
 		if (texm->bTreeMessage)
-			g.l->log(Log::TextMessage, tr("To %1 (Tree): %2").arg(Log::formatChannel(c), texm->message()), tr("Message to tree %1").arg(c->qsName), true);
+			g.l->log(Log::TextMessage, tr("To %1 (Tree): %2").arg(Log::formatChannel(c), texm->message()), tr("Message to tree %1").arg(c->name()), true);
 		else
-			g.l->log(Log::TextMessage, tr("To %1: %2").arg(Log::formatChannel(c), texm->message()), tr("Message to channel %1").arg(c->qsName), true);
+			g.l->log(Log::TextMessage, tr("To %1: %2").arg(Log::formatChannel(c), texm->message()), tr("Message to channel %1").arg(c->name()), true);
 	}
 	delete texm;
 }
@@ -1769,13 +1769,13 @@ void MainWindow::on_qaChannelCopyURL_triggered() {
 	g.sh->getConnectionInfo(host, port, uname, pw);
 
 	// walk back up the channel list to build the URL.
-	while (c->cParent != NULL) {
-		channel.prepend(c->qsName);
+	while (c->parent()) {
+		channel.prepend(c->name());
 		channel.prepend(QLatin1String("/"));
-		c = c->cParent;
+		c = c->parent();
 	}
 
-	QApplication::clipboard()->setMimeData(ServerItem::toMimeData(c->qsName, host, port, channel), QClipboard::Clipboard);
+	QApplication::clipboard()->setMimeData(ServerItem::toMimeData(c->name(), host, port, channel), QClipboard::Clipboard);
 }
 
 void MainWindow::updateMenuPermissions() {
@@ -1792,43 +1792,43 @@ void MainWindow::updateMenuPermissions() {
 			c = pmModel->getChannel(qtvUsers->currentIndex());
 	}
 
-	ChanACL::Permissions p = c ? static_cast<ChanACL::Permissions>(c->uiPermissions) : ChanACL::None;
+	ChanACL::Permissions p = c ? static_cast<ChanACL::Permissions>(c->permissions()) : ChanACL::None;
 
 	if (c && ! p) {
-		g.sh->requestChannelPermissions(c->iId);
-		if (c->iId == 0)
+		g.sh->requestChannelPermissions(c->id());
+		if (c->id() == 0)
 			p = g.pPermissions;
 		else
 			p = ChanACL::All;
 
-		c->uiPermissions = p;
+		c->set_permissions(p);
 	}
 
-	Channel *cparent = c ? c->cParent : NULL;
-	ChanACL::Permissions pparent = cparent ? static_cast<ChanACL::Permissions>(cparent->uiPermissions) : ChanACL::None;
+	Channel *cparent = c ? c->parent() : NULL;
+	ChanACL::Permissions pparent = cparent ? static_cast<ChanACL::Permissions>(cparent->permissions()) : ChanACL::None;
 
 	if (cparent && ! pparent) {
-		g.sh->requestChannelPermissions(cparent->iId);
-		if (cparent->iId == 0)
+		g.sh->requestChannelPermissions(cparent->id());
+		if (cparent->id() == 0)
 			pparent = g.pPermissions;
 		else
 			pparent = ChanACL::All;
 
-		cparent->uiPermissions = pparent;
+		cparent->set_permissions(pparent);
 	}
 
 	ClientUser *user = g.uiSession ? ClientUser::get(g.uiSession) : NULL;
 	Channel *homec = user ? user->cChannel : NULL;
-	ChanACL::Permissions homep = homec ? static_cast<ChanACL::Permissions>(homec->uiPermissions) : ChanACL::None;
+	ChanACL::Permissions homep = homec ? static_cast<ChanACL::Permissions>(homec->permissions()) : ChanACL::None;
 
 	if (homec && ! homep) {
-		g.sh->requestChannelPermissions(homec->iId);
-		if (homec->iId == 0)
+		g.sh->requestChannelPermissions(homec->id());
+		if (homec->id() == 0)
 			homep = g.pPermissions;
 		else
 			homep = ChanACL::All;
 
-		homec->uiPermissions = homep;
+		homec->set_permissions(homep);
 	}
 
 	if (cu) {
@@ -2111,7 +2111,7 @@ Channel *MainWindow::mapChannel(int idx) const {
 			case -3:
 				c = ClientUser::get(g.uiSession)->cChannel;
 				if (idx == -2)
-					c = c->cParent;
+					c = c->parent();
 				break;
 			default:
 				c = pmModel->getSubChannel(ClientUser::get(g.uiSession)->cChannel, -4 - idx);
@@ -2148,7 +2148,7 @@ void MainWindow::updateTarget() {
 				if (c) {
 					nt.bLinks = st.bLinks;
 					nt.bChildren = st.bChildren;
-					nt.iChannel = c->iId;
+					nt.iChannel = c->id();
 					nt.qsGroup = st.qsGroup;
 					ql << nt;
 				}
@@ -2227,7 +2227,7 @@ void MainWindow::on_gsWhisper_triggered(bool down, QVariant scdata) {
 			if (! st.bUsers) {
 				Channel *c = mapChannel(st.iChannel);
 				if (c) {
-					g.sh->joinChannel(c->iId);
+					g.sh->joinChannel(c->id());
 				}
 				return;
 			}
@@ -2238,10 +2238,10 @@ void MainWindow::on_gsWhisper_triggered(bool down, QVariant scdata) {
 				Channel *c = ClientUser::get(g.uiSession)->cChannel;
 				Channel *l = mapChannel(st.iChannel);
 				if (l) {
-					if (c->qsPermLinks.contains(l)) {
-						g.sh->removeChannelLink(c->iId, l->iId);
+					if (c->isLinked(l)) {
+						g.sh->removeChannelLink(c->id(), l->id());
 					} else {
-						g.sh->addChannelLink(c->iId, l->iId);
+						g.sh->addChannelLink(c->id(), l->id());
 					}
 				}
 				return;
@@ -2286,7 +2286,7 @@ void MainWindow::serverConnected() {
 	Channel *root = Channel::get(0);
 	pmModel->renameChannel(root, tr("Root"));
 	pmModel->setCommentHash(root, QByteArray());
-	root->uiPermissions = 0;
+	root->set_permissions(0);
 
 	qtvUsers->setRowHidden(0, QModelIndex(), false);
 
@@ -2317,15 +2317,15 @@ static QString getPathToChannel(Channel *c) {
 		return out;
 
 	Channel *tmp = c;
-	while (tmp->cParent) {
+	while (tmp->parent()) {
 		// skip root channel
-		if (tmp->iId == 0)
+		if (tmp->id() == 0)
 			break;
 
 		out.prepend(QString::fromLatin1("/"));
-		out.prepend(tmp->qsName);
+		out.prepend(tmp->name());
 
-		tmp = tmp->cParent;
+		tmp = tmp->parent();
 	}
 
 	return out;
@@ -2579,7 +2579,7 @@ void MainWindow::qtvUserCurrentChanged(const QModelIndex &, const QModelIndex &)
 		if (c == NULL) // If no channel selected fallback to current one
 			c = ClientUser::get(g.uiSession)->cChannel;
 
-		qteChat->setDefaultText(tr("<center>Type message to channel '%1' here</center>").arg(c->qsName));
+		qteChat->setDefaultText(tr("<center>Type message to channel '%1' here</center>").arg(c->name()));
 	} else {
 		// User target
 		qteChat->setDefaultText(tr("<center>Type message to user '%1' here</center>").arg(p->qsName));
@@ -2677,7 +2677,7 @@ void MainWindow::context_triggered() {
 	if (p && p->uiSession)
 		mpca.set_session(p->uiSession);
 	if (c)
-		mpca.set_channel_id(c->iId);
+		mpca.set_channel_id(c->id());
 	g.sh->sendMessage(mpca);
 }
 

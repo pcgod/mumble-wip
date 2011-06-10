@@ -279,7 +279,7 @@ QString Log::msgColor(const QString &text, LogColorType t) {
 }
 
 QString Log::formatChannel(::Channel *c) {
-	return QString::fromLatin1("<a href='channelid://%1/%3' class='log-channel'>%2</a>").arg(c->iId).arg(c->qsName).arg(QString::fromLatin1(g.sh->qbaDigest.toBase64()));
+	return QString::fromLatin1("<a href='channelid://%1/%3' class='log-channel'>%2</a>").arg(c->id()).arg(c->name()).arg(QString::fromLatin1(g.sh->qbaDigest.toBase64()));
 }
 
 QString Log::formatClientUser(ClientUser *cu, LogColorType t) {

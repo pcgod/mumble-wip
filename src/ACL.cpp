@@ -46,7 +46,7 @@ ChanACL::ChanACL(Channel *chan) : QObject(chan) {
 
 	c = chan;
 	if (c)
-		c->qlACL << this;
+		c->addAcl(this);
 }
 
 // Check permissions.
@@ -88,7 +88,7 @@ bool ChanACL::hasPermission(ServerUser *p, Channel *chan, QFlags<Perm> perm, ACL
 	ch = chan;
 	while (ch) {
 		chanstack.push(ch);
-		ch = ch->cParent;
+		ch = ch->parent();
 	}
 
 	// Default permissions
@@ -101,10 +101,10 @@ bool ChanACL::hasPermission(ServerUser *p, Channel *chan, QFlags<Perm> perm, ACL
 
 	while (! chanstack.isEmpty()) {
 		ch = chanstack.pop();
-		if (! ch->bInheritACL)
+		if (! ch->inherit_acl())
 			granted = def;
 
-		foreach(acl, ch->qlACL) {
+		foreach(acl, ch->acls()) {
 			bool matchUser = (acl->iUserId != -1) && (acl->iUserId == p->iId);
 			bool matchGroup = Group::isMember(chan, ch, acl->qsGroup, p);
 			if (matchUser || matchGroup) {

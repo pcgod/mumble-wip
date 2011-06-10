@@ -51,7 +51,7 @@ ModelItem::ModelItem(Channel *c) {
 	this->pUser = NULL;
 	bCommentSeen = true;
 	c_qhChannels.insert(c, this);
-	parent = c_qhChannels.value(c->cParent);
+	parent = c_qhChannels.value(c->parent());
 	iUsers = 0;
 }
 
@@ -197,8 +197,8 @@ QString ModelItem::hash() const {
 	} else {
 		QCryptographicHash chash(QCryptographicHash::Sha1);
 
-		chash.addData(cChan->qsName.toUtf8());
-		chash.addData(QString::number(cChan->iId).toUtf8());
+		chash.addData(cChan->name().toUtf8());
+		chash.addData(QString::number(cChan->id()).toUtf8());
 		if (g.sh && g.sh->isRunning()) {
 			QString host, user, pw;
 			unsigned short port;
@@ -342,7 +342,7 @@ QString UserModel::stringIndex(const QModelIndex &idx) const {
 	if (item->pUser)
 		return QString::fromLatin1("P:%1 [%2,%3]").arg(item->pUser->qsName).arg(idx.row()).arg(idx.column());
 	else
-		return QString::fromLatin1("C:%1 [%2,%3]").arg(item->cChan->qsName).arg(idx.row()).arg(idx.column());
+		return QString::fromLatin1("C:%1 [%2,%3]").arg(item->cChan->name()).arg(idx.row()).arg(idx.column());
 }
 
 QVariant UserModel::data(const QModelIndex &idx, int role) const {
@@ -435,11 +435,11 @@ QVariant UserModel::data(const QModelIndex &idx, int role) const {
 			case Qt::DisplayRole:
 				if (idx.column() == 0) {
 					if (! g.s.bShowUserCount || item->iUsers == 0)
-						return c->qsName;
+						return c->name();
 
-					return QString::fromLatin1("%1 (%2)").arg(c->qsName).arg(item->iUsers);
+					return QString::fromLatin1("%1 (%2)").arg(c->name()).arg(item->iUsers);
 				}
-				if (! c->qbaDescHash.isEmpty())
+				if (! c->description_hash().isEmpty())
 					l << (item->bCommentSeen ? qiCommentSeen : qiComment);
 				return l;
 			case Qt::FontRole:
@@ -457,7 +457,7 @@ QVariant UserModel::data(const QModelIndex &idx, int role) const {
 				}
 				break;
 			case Qt::BackgroundRole:
-				if ((c->iId == 0) && g.sh && g.sh->isStrong()) {
+				if ((c->id() == 0) && g.sh && g.sh->isStrong()) {
 					QColor qc(Qt::green);
 					qc.setAlpha(32);
 					return qc;
@@ -545,23 +545,23 @@ QVariant UserModel::otherRoles(const QModelIndex &idx, int role) const {
 								return base;
 							}
 						} else {
-							if (c->qbaDescHash.isEmpty()) {
-								return c->qsName;
+							if (c->description_hash().isEmpty()) {
+								return c->name();
 							} else {
-								if (c->qsDesc.isEmpty()) {
-									c->qsDesc = QString::fromUtf8(Database::blob(c->qbaDescHash));
-									if (c->qsDesc.isEmpty()) {
-										const_cast<UserModel *>(this)->iChannelDescription = c->iId;
+								if (c->description().isEmpty()) {
+									c->set_description(QString::fromUtf8(Database::blob(c->description_hash())));
+									if (c->description().isEmpty()) {
+										const_cast<UserModel *>(this)->iChannelDescription = c->id();
 
 										MumbleProto::RequestBlob mprb;
-										mprb.add_channel_description(c->iId);
+										mprb.add_channel_description(c->id());
 										g.sh->sendMessage(mprb);
 										return QVariant();
 									}
 								}
 
 								const_cast<UserModel *>(this)->seenComment(idx);
-								return Log::validHtml(c->qsDesc);
+								return Log::validHtml(c->description());
 							}
 						}
 					}
@@ -772,7 +772,7 @@ void UserModel::expandAll(Channel *c) {
 
 	while (c) {
 		chans.push(c);
-		c = c->cParent;
+		c = c->parent();
 	}
 	while (! chans.isEmpty()) {
 		c = chans.pop();
@@ -787,7 +787,7 @@ void UserModel::collapseEmpty(Channel *c) {
 			g.mw->qtvUsers->setExpanded(index(c), false);
 		else
 			break;
-		c = c->cParent;
+		c = c->parent();
 	}
 }
 
@@ -1021,19 +1021,19 @@ void UserModel::setCommentHash(ClientUser *cu, const QByteArray &hash) {
 }
 
 void UserModel::setComment(Channel *c, const QString &comment) {
-	c->qbaDescHash = comment.isEmpty() ? QByteArray() : sha1(comment);
+	c->set_description_hash(comment.isEmpty() ? QByteArray() : sha1(comment));
 
-	if (comment != c->qsDesc) {
+	if (comment != c->description()) {
 		ModelItem *item = ModelItem::c_qhChannels.value(c);
-		int oldstate = c->qsDesc.isEmpty() ? 0 : (item->bCommentSeen ? 2 : 1);
+		int oldstate = c->description().isEmpty() ? 0 : (item->bCommentSeen ? 2 : 1);
 		int newstate = 0;
 
-		c->qsDesc = comment;
+		c->set_description(comment);
 
 		if (! comment.isEmpty()) {
-			Database::setBlob(c->qbaDescHash, c->qsDesc.toUtf8());
+			Database::setBlob(c->description_hash(), c->description().toUtf8());
 
-			if (c->iId == iChannelDescription) {
+			if (c->id() == iChannelDescription) {
 				iChannelDescription = -1;
 				item->bCommentSeen = false;
 				if (bClicked) {
@@ -1043,7 +1043,7 @@ void UserModel::setComment(Channel *c, const QString &comment) {
 					QToolTip::showText(QCursor::pos(), data(index(c, 0), Qt::ToolTipRole).toString(), g.mw->qtvUsers);
 				}
 			} else {
-				item->bCommentSeen = Database::seenComment(item->hash(), c->qbaDescHash);
+				item->bCommentSeen = Database::seenComment(item->hash(), c->description_hash());
 				newstate = item->bCommentSeen ? 2 : 1;
 			}
 		} else {
@@ -1058,13 +1058,13 @@ void UserModel::setComment(Channel *c, const QString &comment) {
 }
 
 void UserModel::setCommentHash(Channel *c, const QByteArray &hash) {
-	if (hash != c->qbaDescHash) {
+	if (hash != c->description_hash()) {
 		ModelItem *item = ModelItem::c_qhChannels.value(c);
-		int oldstate = (c->qsDesc.isEmpty() && c->qbaDescHash.isEmpty()) ? 0 : (item->bCommentSeen ? 2 : 1);
+		int oldstate = (c->description().isEmpty() && c->description_hash().isEmpty()) ? 0 : (item->bCommentSeen ? 2 : 1);
 		int newstate;
 
-		c->qsDesc = QString();
-		c->qbaDescHash = hash;
+		c->set_description(QString());
+		c->set_description_hash(hash);
 
 		item->bCommentSeen = Database::seenComment(item->hash(), hash);
 		newstate = item->bCommentSeen ? 2 : 1;
@@ -1090,17 +1090,17 @@ void UserModel::seenComment(const QModelIndex &idx) {
 	if (item->pUser)
 		Database::setSeenComment(item->hash(), item->pUser->qbaCommentHash);
 	else
-		Database::setSeenComment(item->hash(), item->cChan->qbaDescHash);
+		Database::setSeenComment(item->hash(), item->cChan->description_hash());
 }
 
 void UserModel::renameChannel(Channel *c, const QString &name) {
-	c->qsName = name;
+	c->set_name(name);
 
-	if (c->iId == 0) {
+	if (c->id() == 0) {
 		QModelIndex idx = index(c);
 		emit dataChanged(idx, idx);
 	} else {
-		Channel *pc = c->cParent;
+		Channel *pc = c->parent();
 		ModelItem *pi = ModelItem::c_qhChannels.value(pc);
 		ModelItem *item = ModelItem::c_qhChannels.value(c);
 
@@ -1109,13 +1109,13 @@ void UserModel::renameChannel(Channel *c, const QString &name) {
 }
 
 void UserModel::repositionChannel(Channel *c, const int position) {
-	c->iPosition = position;
+	c->set_position(position);
 
-	if (c->iId == 0) {
+	if (c->id() == 0) {
 		QModelIndex idx = index(c);
 		emit dataChanged(idx, idx);
 	} else {
-		Channel *pc = c->cParent;
+		Channel *pc = c->parent();
 		ModelItem *pi = ModelItem::c_qhChannels.value(pc);
 		ModelItem *item = ModelItem::c_qhChannels.value(c);
 
@@ -1159,7 +1159,7 @@ void UserModel::removeChannel(Channel *c) {
 			removeChannel(i->cChan);
 	}
 
-	Channel *p = c->cParent;
+	Channel *p = c->parent();
 
 	if (! p)
 		return;
@@ -1181,8 +1181,8 @@ void UserModel::removeChannel(Channel *c) {
 }
 
 void UserModel::moveChannel(Channel *c, Channel *p) {
-	Channel *oc = c->cParent;
-	ModelItem *opi = ModelItem::c_qhChannels.value(c->cParent);
+	Channel *oc = c->parent();
+	ModelItem *opi = ModelItem::c_qhChannels.value(c->parent());
 	ModelItem *pi = ModelItem::c_qhChannels.value(p);
 	ModelItem *item = ModelItem::c_qhChannels.value(c);
 	item = moveItem(opi, pi, item);
@@ -1322,7 +1322,7 @@ QMimeData *UserModel::mimeData(const QModelIndexList &idxs) const {
 			ds << p->uiSession;
 		} else if (c) {
 			ds << true;
-			ds << c->iId;
+			ds << c->id();
 		}
 	}
 	QMimeData *md = new QMimeData();
@@ -1330,9 +1330,11 @@ QMimeData *UserModel::mimeData(const QModelIndexList &idxs) const {
 	return md;
 }
 
-bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int column, const QModelIndex &p) {
-#define NAMECMPCHANNEL(first, second) (QString::localeAwareCompare(first->qsName, second->qsName) > 0)
+static inline bool compareChannelName(Channel *first, Channel *second) {
+	return QString::localeAwareCompare(first->name(), second->name()) > 0;
+}
 
+bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int column, const QModelIndex &p) {
 	if (! md->hasFormat(mimeTypes().at(0)))
 		return false;
 
@@ -1365,9 +1367,9 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 		// User dropped somewhere
 		MumbleProto::UserState mpus;
 		mpus.set_session(uiSession);
-		mpus.set_channel_id(c->iId);
+		mpus.set_channel_id(c->id());
 		g.sh->sendMessage(mpus);
-	} else if (c->iId != iId) {
+	} else if (c->id() != iId) {
 		// Channel dropped somewhere (not on itself)
 		int ret;
 		switch (g.s.ceChannelDrag) {
@@ -1389,7 +1391,7 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 		}
 
 		long long inewpos = 0;
-		Channel *dropped = Channel::c_qhChannels.value(iId);
+		Channel *dropped = Channel::get(iId);
 
 		if (! dropped)
 			return false;
@@ -1413,18 +1415,20 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 					// Dropped on player
 					if (ilast > 0) {
 						if (pi->bUsersTop) {
-							if (pi->channelAt(ifirst) == dropped || NAMECMPCHANNEL(pi->channelAt(ifirst), dropped)) {
-								if (dropped->iPosition ==  pi->channelAt(ifirst)->iPosition) return true;
-								inewpos = pi->channelAt(ifirst)->iPosition;
+							if (pi->channelAt(ifirst) == dropped || compareChannelName(pi->channelAt(ifirst), dropped)) {
+								if (dropped->position() ==  pi->channelAt(ifirst)->position())
+									return true;
+								inewpos = pi->channelAt(ifirst)->position();
 							} else {
-								inewpos = static_cast<long long>(pi->channelAt(ifirst)->iPosition) - 20;
+								inewpos = static_cast<long long>(pi->channelAt(ifirst)->position()) - 20;
 							}
 						} else {
-							if (dropped == pi->channelAt(ilast) || NAMECMPCHANNEL(dropped, pi->channelAt(ilast))) {
-								if (pi->channelAt(ilast)->iPosition == dropped->iPosition) return true;
-								inewpos = pi->channelAt(ilast)->iPosition;
+							if (dropped == pi->channelAt(ilast) || compareChannelName(dropped, pi->channelAt(ilast))) {
+								if (pi->channelAt(ilast)->position() == dropped->position())
+									return true;
+								inewpos = pi->channelAt(ilast)->position();
 							} else {
-								inewpos = static_cast<long long>(pi->channelAt(ilast)->iPosition) + 20;
+								inewpos = static_cast<long long>(pi->channelAt(ilast)->position()) + 20;
 							}
 						}
 					}
@@ -1434,37 +1438,39 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 				if (ilast == 0) {
 					// No channels in there yet
 				} else if (row <= ifirst) {
-					if (pi->channelAt(ifirst) == dropped || NAMECMPCHANNEL(pi->channelAt(ifirst), dropped)) {
-						if (dropped->iPosition ==  pi->channelAt(ifirst)->iPosition) return true;
-						inewpos = pi->channelAt(ifirst)->iPosition;
+					if (pi->channelAt(ifirst) == dropped || compareChannelName(pi->channelAt(ifirst), dropped)) {
+						if (dropped->position() ==  pi->channelAt(ifirst)->position())
+							return true;
+						inewpos = pi->channelAt(ifirst)->position();
 					} else {
-						inewpos = static_cast<long long>(pi->channelAt(ifirst)->iPosition) - 20;
+						inewpos = static_cast<long long>(pi->channelAt(ifirst)->position()) - 20;
 					}
 				} else if (row > ilast) {
-					if (dropped == pi->channelAt(ilast) || NAMECMPCHANNEL(dropped, pi->channelAt(ilast))) {
-						if (pi->channelAt(ilast)->iPosition == dropped->iPosition) return true;
-						inewpos = pi->channelAt(ilast)->iPosition;
+					if (dropped == pi->channelAt(ilast) || compareChannelName(dropped, pi->channelAt(ilast))) {
+						if (pi->channelAt(ilast)->position() == dropped->position())
+							return true;
+						inewpos = pi->channelAt(ilast)->position();
 					} else {
-						inewpos = static_cast<long long>(pi->channelAt(ilast)->iPosition) + 20;
+						inewpos = static_cast<long long>(pi->channelAt(ilast)->position()) + 20;
 					}
 				} else {
 					// Dropped between channels
 					Channel *lower = pi->channelAt(row);
 					Channel *upper = pi->channelAt(row - 1);
 
-					if (lower->iPosition == upper->iPosition && NAMECMPCHANNEL(lower, dropped) && NAMECMPCHANNEL(dropped, upper)) {
-						inewpos = upper->iPosition;
-					} else if (lower->iPosition > upper->iPosition && NAMECMPCHANNEL(lower, dropped)) {
-						inewpos = lower->iPosition;
-					} else if (lower->iPosition > upper->iPosition && NAMECMPCHANNEL(dropped, upper)) {
-						inewpos = upper->iPosition;
+					if (lower->position() == upper->position() && compareChannelName(lower, dropped) && compareChannelName(dropped, upper)) {
+						inewpos = upper->position();
+					} else if (lower->position() > upper->position() && compareChannelName(lower, dropped)) {
+						inewpos = lower->position();
+					} else if (lower->position() > upper->position() && compareChannelName(dropped, upper)) {
+						inewpos = upper->position();
 					} else if (lower == dropped || upper == dropped) {
 						return true;
-					} else if (abs(lower->iPosition) - abs(upper->iPosition) > 1) {
-						inewpos = upper->iPosition + (abs(lower->iPosition) - abs(upper->iPosition))/2;
+					} else if (abs(lower->position()) - abs(upper->position()) > 1) {
+						inewpos = upper->position() + (abs(lower->position()) - abs(upper->position())) / 2;
 					} else {
 						// Not enough space, other channels have to be moved
-						if (static_cast<long long>(pi->channelAt(ilast)->iPosition) + 40 > INT_MAX) {
+						if (static_cast<long long>(pi->channelAt(ilast)->position()) + 40 > INT_MAX) {
 							QMessageBox::critical(g.mw, QLatin1String("Mumble"), tr("Cannot perform this movement automatically, please reset the numeric sorting indicators or adjust it manually."));
 							return false;
 						}
@@ -1472,13 +1478,13 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 							Channel *tmp = pi->channelAt(i);
 							if (tmp != dropped) {
 								MumbleProto::ChannelState mpcs;
-								mpcs.set_channel_id(tmp->iId);
-								mpcs.set_position(tmp->iPosition + 40);
+								mpcs.set_channel_id(tmp->id());
+								mpcs.set_position(tmp->position() + 40);
 								g.sh->sendMessage(mpcs);
 
 							}
 						}
-						inewpos = upper->iPosition + 20;
+						inewpos = upper->position() + 20;
 					}
 				}
 			}
@@ -1492,7 +1498,7 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 		MumbleProto::ChannelState mpcs;
 		mpcs.set_channel_id(iId);
 		if (dropped->parent() != c)
-			mpcs.set_parent(c->iId);
+			mpcs.set_parent(c->id());
 		mpcs.set_position(static_cast<int>(inewpos));
 		g.sh->sendMessage(mpcs);
 	}

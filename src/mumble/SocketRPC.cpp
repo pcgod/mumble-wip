@@ -158,9 +158,9 @@ void SocketRPCClient::processXml() {
 				u.addQueryItem(QLatin1String("version"), QLatin1String("1.2.0"));
 				QStringList path;
 				Channel *c = ClientUser::get(g.uiSession)->cChannel;
-				while (c->cParent) {
-					path.prepend(c->qsName);
-					c = c->cParent;
+				while (c->parent()) {
+					path.prepend(c->name());
+					c = c->parent();
 				}
 				u.setPath(path.join(QLatin1String("/")));
 				qmReply.insert(QLatin1String("href"), u);

@@ -277,10 +277,10 @@ int ShortcutToggleWidget::index() const {
 }
 
 void iterateChannelChildren(QTreeWidgetItem *root, Channel *chan, QMap<int, QTreeWidgetItem *> &map) {
-	foreach(Channel *c, chan->qlChannels) {
-		QTreeWidgetItem *sub = new QTreeWidgetItem(root, QStringList(c->qsName));
-		sub->setData(0, Qt::UserRole, c->iId);
-		map.insert(c->iId, sub);
+	foreach(Channel *c, chan->channels()) {
+		QTreeWidgetItem *sub = new QTreeWidgetItem(root, QStringList(c->name()));
+		sub->setData(0, Qt::UserRole, c->id());
+		map.insert(c->id(), sub);
 		iterateChannelChildren(sub, c, map);
 	}
 }
@@ -377,7 +377,7 @@ ShortcutTargetDialog::ShortcutTargetDialog(const ShortcutTarget &st, QWidget *pw
 	// And if we are connected add the channels on the current server
 	if (g.uiSession) {
 		Channel *c = Channel::get(0);
-		QTreeWidgetItem *sroot = new QTreeWidgetItem(qtwChannels, QStringList(c->qsName));
+		QTreeWidgetItem *sroot = new QTreeWidgetItem(qtwChannels, QStringList(c->name()));
 		qmTree.insert(0, sroot);
 		iterateChannelChildren(sroot, c, qmTree);
 	}
@@ -386,7 +386,7 @@ ShortcutTargetDialog::ShortcutTargetDialog(const ShortcutTarget &st, QWidget *pw
 
 	QTreeWidgetItem *qtwi;
 	if (g.uiSession) {
-		qtwi = qmTree.value(ClientUser::get(g.uiSession)->cChannel->iId);
+		qtwi = qmTree.value(ClientUser::get(g.uiSession)->cChannel->id());
 		if (qtwi)
 			qtwChannels->scrollToItem(qtwi);
 	}
@@ -509,7 +509,7 @@ QString ShortcutTargetWidget::targetString(const ShortcutTarget &st) {
 		} else {
 			Channel *c = Channel::get(st.iChannel);
 			if (c)
-				return c->qsName;
+				return c->name();
 			else
 				return tr("Invalid");
 		}

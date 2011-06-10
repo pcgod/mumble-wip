@@ -1105,27 +1105,27 @@ QByteArray Server::getUserTexture(int id) {
 void Server::addLink(Channel *c, Channel *l) {
 	c->link(l);
 
-	if (c->bTemporary || l->bTemporary)
+	if (c->temporary() || l->temporary())
 		return;
 	TransactionHolder th;
 
 	QSqlQuery &query = *th.qsqQuery;
 	SQLPREP("INSERT INTO `%1channel_links` (`server_id`, `channel_id`, `link_id`) VALUES (?,?,?)");
 	query.addBindValue(iServerNum);
-	query.addBindValue(c->iId);
-	query.addBindValue(l->iId);
+	query.addBindValue(c->id());
+	query.addBindValue(l->id());
 	SQLEXEC();
 
 	query.addBindValue(iServerNum);
-	query.addBindValue(l->iId);
-	query.addBindValue(c->iId);
+	query.addBindValue(l->id());
+	query.addBindValue(c->id());
 	SQLEXEC();
 }
 
 void Server::removeLink(Channel *c, Channel *l) {
 	c->unlink(l);
 
-	if (c->bTemporary || l->bTemporary)
+	if (c->temporary() || l->temporary())
 		return;
 	TransactionHolder th;
 
@@ -1134,19 +1134,19 @@ void Server::removeLink(Channel *c, Channel *l) {
 	if (l) {
 		SQLPREP("DELETE FROM `%1channel_links` WHERE `server_id` = ? AND `channel_id` = ? AND `link_id` = ?");
 		query.addBindValue(iServerNum);
-		query.addBindValue(c->iId);
-		query.addBindValue(l->iId);
+		query.addBindValue(c->id());
+		query.addBindValue(l->id());
 		SQLEXEC();
 
 		query.addBindValue(iServerNum);
-		query.addBindValue(l->iId);
-		query.addBindValue(c->iId);
+		query.addBindValue(l->id());
+		query.addBindValue(c->id());
 		SQLEXEC();
 	} else {
 		SQLPREP("DELETE FROM `%1channel_links` WHERE `server_id` = ? AND (`channel_id` = ? OR `link_id` = ?)");
 		query.addBindValue(iServerNum);
-		query.addBindValue(c->iId);
-		query.addBindValue(c->iId);
+		query.addBindValue(c->id());
+		query.addBindValue(c->id());
 		SQLEXEC();
 	}
 }
@@ -1170,41 +1170,41 @@ Channel *Server::addChannel(Channel *p, const QString &name, bool temporary, int
 	if (! temporary) {
 		SQLPREP("INSERT INTO `%1channels` (`server_id`, `parent_id`, `channel_id`, `name`) VALUES (?,?,?,?)");
 		query.addBindValue(iServerNum);
-		query.addBindValue(p->iId);
+		query.addBindValue(p->id());
 		query.addBindValue(id);
 		query.addBindValue(name);
 		SQLEXEC();
+
+		// Add channel sorting information
+		SQLPREP("INSERT INTO `%1channel_info` ( `server_id`, `channel_id`, `key`, `value`) VALUES(?,?,?,?)");
+		query.addBindValue(iServerNum);
+		query.addBindValue(id);
+		query.addBindValue(ServerDB::Channel_Position);
+		query.addBindValue(QVariant(position).toString());
 	}
 
-	// Add channel sorting information
-	SQLPREP("INSERT INTO `%1channel_info` ( `server_id`, `channel_id`, `key`, `value`) VALUES(?,?,?,?)");
-	query.addBindValue(iServerNum);
-	query.addBindValue(id);
-	query.addBindValue(ServerDB::Channel_Position);
-	query.addBindValue(QVariant(position).toString());
-
 	Channel *c = new Channel(id, name, p);
-	c->bTemporary = temporary;
-	c->iPosition = position;
+	c->set_temporary(temporary);
+	c->set_position(position);
 	qhChannels.insert(id, c);
 	return c;
 }
 
 void Server::removeChannelDB(const Channel *c) {
-	if (! c->bTemporary) {
+	if (! c->temporary()) {
 		TransactionHolder th;
 
 		QSqlQuery &query = *th.qsqQuery;
 		SQLPREP("DELETE FROM `%1channels` WHERE `server_id` = ? AND `channel_id` = ?");
 		query.addBindValue(iServerNum);
-		query.addBindValue(c->iId);
+		query.addBindValue(c->id());
 		SQLEXEC();
 	}
-	qhChannels.remove(c->iId);
+	qhChannels.remove(c->id());
 }
 
 void Server::updateChannel(const Channel *c) {
-	if (c->bTemporary)
+	if (c->temporary())
 		return;
 	TransactionHolder th;
 	Group *g;
@@ -1212,42 +1212,42 @@ void Server::updateChannel(const Channel *c) {
 
 	QSqlQuery &query = *th.qsqQuery;
 	SQLPREP("UPDATE `%1channels` SET `name` = ?, `parent_id` = ?, `inheritacl` = ? WHERE `server_id` = ? AND `channel_id` = ?");
-	query.addBindValue(c->qsName);
-	query.addBindValue(c->cParent ? c->cParent->iId : QVariant());
-	query.addBindValue(c->bInheritACL ? 1 : 0);
+	query.addBindValue(c->name());
+	query.addBindValue(c->parent() ? c->parent()->id() : QVariant());
+	query.addBindValue(c->inherit_acl() ? 1 : 0);
 	query.addBindValue(iServerNum);
-	query.addBindValue(c->iId);
+	query.addBindValue(c->id());
 	SQLEXEC();
 
 	// Update channel description information
 	SQLPREP("REPLACE INTO `%1channel_info` (`server_id`, `channel_id`, `key`, `value`) VALUES (?,?,?,?)");
 	query.addBindValue(iServerNum);
-	query.addBindValue(c->iId);
+	query.addBindValue(c->id());
 	query.addBindValue(ServerDB::Channel_Description);
-	query.addBindValue(c->qsDesc);
+	query.addBindValue(c->description());
 	SQLEXEC();
 
 	// Update channel position information
 	query.addBindValue(iServerNum);
-	query.addBindValue(c->iId);
+	query.addBindValue(c->id());
 	query.addBindValue(ServerDB::Channel_Position);
-	query.addBindValue(QVariant(c->iPosition).toString());
+	query.addBindValue(QVariant(c->position()).toString());
 	SQLEXEC();
 
 	SQLPREP("DELETE FROM `%1groups` WHERE `server_id` = ? AND `channel_id` = ?");
 	query.addBindValue(iServerNum);
-	query.addBindValue(c->iId);
+	query.addBindValue(c->id());
 	SQLEXEC();
 
 	SQLPREP("DELETE FROM `%1acl` WHERE `server_id` = ? AND `channel_id` = ?");
 	query.addBindValue(iServerNum);
-	query.addBindValue(c->iId);
+	query.addBindValue(c->id());
 	SQLEXEC();
 
-	foreach(g, c->qhGroups) {
+	foreach(g, c->groups()) {
 		SQLPREP("INSERT INTO `%1groups` (`server_id`, `channel_id`, `name`, `inherit`, `inheritable`) VALUES (?,?,?,?,?)");
 		query.addBindValue(iServerNum);
-		query.addBindValue(g->c->iId);
+		query.addBindValue(g->c->id());
 		query.addBindValue(g->qsName);
 		query.addBindValue(g->bInherit ? 1 : 0);
 		query.addBindValue(g->bInheritable ? 1 : 0);
@@ -1276,10 +1276,10 @@ void Server::updateChannel(const Channel *c) {
 
 	int pri = 5;
 
-	foreach(acl, c->qlACL) {
+	foreach(acl, c->acls()) {
 		SQLPREP("INSERT INTO `%1acl` (`server_id`, `channel_id`, `priority`, `user_id`, `group_name`, `apply_here`, `apply_sub`, `grantpriv`, `revokepriv`) VALUES (?,?,?,?,?,?,?,?,?)");
 		query.addBindValue(iServerNum);
-		query.addBindValue(acl->c->iId);
+		query.addBindValue(acl->c->id());
 		query.addBindValue(pri++);
 
 		query.addBindValue((acl->iUserId == -1) ? QVariant() : acl->iUserId);
@@ -1298,7 +1298,7 @@ void Server::updateChannel(const Channel *c) {
 void Server::readChannelPrivs(Channel *c) {
 	TransactionHolder th;
 
-	int cid = c->iId;
+	int cid = c->id();
 
 	QSqlQuery &query = *th.qsqQuery;
 
@@ -1310,9 +1310,10 @@ void Server::readChannelPrivs(Channel *c) {
 		int key = query.value(0).toInt();
 		const QString &value = query.value(1).toString();
 		if (key == ServerDB::Channel_Description) {
-			hashAssign(c->qsDesc, c->qbaDescHash, value);
+			c->set_description(value);
+			c->set_description_hash(hash(value));
 		} else if (key == ServerDB::Channel_Position) {
-			c->iPosition = QVariant(value).toInt(); // If the conversion fails it'll return the default value 0
+			c->set_position(QVariant(value).toInt()); // If the conversion fails it'll return the default value 0
 		}
 	}
 
@@ -1362,7 +1363,7 @@ void Server::readChannels(Channel *p) {
 	int parentid = -1;
 
 	if (p) {
-		parentid = p->iId;
+		parentid = p->id();
 		readChannelPrivs(qhChannels.value(parentid));
 	}
 
@@ -1382,8 +1383,8 @@ void Server::readChannels(Channel *p) {
 			c = new Channel(query.value(0).toInt(), query.value(1).toString(), p);
 			if (! p)
 				c->setParent(this);
-			qhChannels.insert(c->iId, c);
-			c->bInheritACL = query.value(2).toBool();
+			qhChannels.insert(c->id(), c);
+			c->set_inherit_acl(query.value(2).toBool());
 			kids << c;
 		}
 	}
@@ -1417,7 +1418,7 @@ void Server::setLastChannel(const User *p) {
 	if (p->iId < 0)
 		return;
 
-	if (p->cChannel->bTemporary)
+	if (p->cChannel->temporary())
 		return;
 
 	TransactionHolder th;
@@ -1428,7 +1429,7 @@ void Server::setLastChannel(const User *p) {
 	} else {
 		SQLPREP("UPDATE `%1users` SET `lastchannel`=?, `last_active` = now() WHERE `server_id` = ? AND `user_id` = ?");
 	}
-	query.addBindValue(p->cChannel->iId);
+	query.addBindValue(p->cChannel->id());
 	query.addBindValue(iServerNum);
 	query.addBindValue(p->iId);
 	SQLEXEC();
@@ -1455,31 +1456,27 @@ int Server::readLastChannel(int id) {
 }
 
 void Server::dumpChannel(const Channel *c) {
-	Group *g;
-	ChanACL *acl;
-	int pid;
-
 	if (c == NULL) {
 		c = qhChannels.value(0);
 	}
 
-	qWarning("Channel %s (ACLInherit %d)", qPrintable(c->qsName), c->bInheritACL);
-	qWarning("Description: %s", qPrintable(c->qsDesc));
-	foreach(g, c->qhGroups) {
+	qWarning("Channel %s (ACLInherit %d)", qPrintable(c->name()), c->inherit_acl());
+	qWarning("Description: %s", qPrintable(c->description()));
+	foreach(Group *g, c->groups()) {
 		qWarning("Group %s (Inh %d  Able %d)", qPrintable(g->qsName), g->bInherit, g->bInheritable);
-		foreach(pid, g->qsAdd)
+		foreach(int pid, g->qsAdd)
 			qWarning("Add %d", pid);
-		foreach(pid, g->qsRemove)
+		foreach(int pid, g->qsRemove)
 			qWarning("Remove %d", pid);
 	}
-	foreach(acl, c->qlACL) {
+	foreach(ChanACL *acl, c->acls()) {
 		int allow = static_cast<int>(acl->pAllow);
 		int deny = static_cast<int>(acl->pDeny);
 		qWarning("ChanACL Here %d Sub %d Allow %04x Deny %04x ID %d Group %s", acl->bApplyHere, acl->bApplySubs, allow, deny, acl->iUserId, qPrintable(acl->qsGroup));
 	}
 	qWarning(" ");
 
-	foreach(c, c->qlChannels) {
+	foreach(c, c->channels()) {
 		dumpChannel(c);
 	}
 }

@@ -280,7 +280,7 @@ void LCD::updateUserView() {
 			continue;
 		}
 
-		foreach(User *p, me->cChannel->qlUsers) {
+		foreach(User *p, me->cChannel->users()) {
 			if (! qmNew.contains(p->uiSession)) {
 				qmNew.insert(p->uiSession, Timer());
 				qmNameCache.insert(p->uiSession, p->qsName);
@@ -309,14 +309,14 @@ void LCD::updateUserView() {
 		qmOld = old;
 
 		QList<struct ListEntry> entries;
-		entries << ListEntry(QString::fromLatin1("[%1:%2]").arg(me->cChannel->qsName).arg(me->cChannel->qlUsers.count()), false, false);
+		entries << ListEntry(QString::fromLatin1("[%1:%2]").arg(me->cChannel->name()).arg(me->cChannel->users().count()), false, false);
 
 		bool hasnew = false;
 
 		QMap<unsigned int, Timer> speaking;
 
 		foreach(Channel *c, home->allLinks()) {
-			foreach(User *p, c->qlUsers) {
+			foreach(User *p, c->users()) {
 				ClientUser *u = static_cast<ClientUser *>(p);
 				bool bTalk = (u->tsState != Settings::Passive);
 				if (bTalk) {

@@ -168,7 +168,7 @@ void UserView::mouseReleaseEvent(QMouseEvent *evt) {
 		ClientUser *cu = um->getUser(idx);
 		Channel * c = um->getChannel(idx);
 		if ((cu && ! cu->qbaCommentHash.isEmpty()) ||
-		        (! cu && c && ! c->qbaDescHash.isEmpty())) {
+		        (! cu && c && ! c->description_hash().isEmpty())) {
 			QRect r = visualRect(idx);
 
 			int offset = 18;
@@ -231,7 +231,7 @@ void UserView::nodeActivated(const QModelIndex &idx) {
 	Channel *c = um->getChannel(idx);
 	if (c) {
 		// if a channel is activated join it
-		g.sh->joinChannel(c->iId);
+		g.sh->joinChannel(c->id());
 	}
 }
 

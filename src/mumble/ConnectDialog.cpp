@@ -970,8 +970,8 @@ void ConnectDialog::on_qaFavoriteAddNew_triggered() {
 				g.sh->getConnectionInfo(host, port, user, pw);
 				Channel *c = Channel::get(0);
 				if (c) {
-					if (c->qsName != QLatin1String("Root"))
-						name = c->qsName;
+					if (c->name() != QLatin1String("Root"))
+						name = c->name();
 				}
 			} else
 				user = g.s.qsUsername;

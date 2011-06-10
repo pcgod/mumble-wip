@@ -240,6 +240,7 @@ class Server : public QThread {
 
 		static void hashAssign(QString &destination, QByteArray &hash, const QString &str);
 		static void hashAssign(QByteArray &destination, QByteArray &hash, const QByteArray &source);
+		QByteArray hash(const QString &src);
 		bool isTextAllowed(QString &str, bool &changed);
 
 		void setLiveConf(const QString &key, const QString &value);

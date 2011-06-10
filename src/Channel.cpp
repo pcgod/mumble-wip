@@ -63,7 +63,7 @@ Channel::~Channel() {
 		delete acl;
 	foreach(Group *g, qhGroups)
 		delete g;
-	foreach(Channel *l, qhLinks.keys())
+	foreach(Channel *l, qsPermLinks)
 		unlink(l);
 
 	Q_ASSERT(qlChannels.count() == 0);
@@ -71,6 +71,11 @@ Channel::~Channel() {
 }
 
 #ifdef MUMBLE
+void Channel::resetPermissions() {
+	foreach(Channel *c, c_qhChannels)
+		c->set_permissions(0);
+}
+
 Channel *Channel::get(int id) {
 	QReadLocker lock(&c_qrwlChannels);
 	return c_qhChannels.value(id);
@@ -101,34 +106,30 @@ bool Channel::lessThan(const Channel *first, const Channel *second) {
 }
 
 bool Channel::isLinked(Channel *l) const {
-	return ((l == this) || qhLinks.contains(l));
+	return ((l == this) || qsPermLinks.contains(l));
 }
 
 void Channel::link(Channel *l) {
 	if (qsPermLinks.contains(l))
 		return;
 	qsPermLinks.insert(l);
-	qhLinks[l]++;
 	l->qsPermLinks.insert(this);
-	l->qhLinks[this]++;
 }
 
 void Channel::unlink(Channel *l) {
 	if (l) {
 		qsPermLinks.remove(l);
-		qhLinks.remove(l);
 		l->qsPermLinks.remove(this);
-		l->qhLinks.remove(this);
 	} else {
-		foreach(Channel *c, qhLinks.keys())
+		foreach(Channel *c, qsPermLinks)
 			unlink(c);
 	}
 }
 
-QSet<Channel *> Channel::allLinks() {
+const QSet<Channel *> Channel::allLinks() {
 	QSet<Channel *> seen;
 	seen.insert(this);
-	if (qhLinks.isEmpty())
+	if (qsPermLinks.isEmpty())
 		return seen;
 
 	Channel *l, *lnk;
@@ -137,7 +138,7 @@ QSet<Channel *> Channel::allLinks() {
 
 	while (! stack.isEmpty()) {
 		lnk = stack.pop();
-		foreach(l, lnk->qhLinks.keys()) {
+		foreach(l, lnk->qsPermLinks) {
 			if (! seen.contains(l)) {
 				seen.insert(l);
 				stack.push(l);
@@ -147,7 +148,7 @@ QSet<Channel *> Channel::allLinks() {
 	return seen;
 }
 
-QSet<Channel *> Channel::allChildren() {
+const QSet<Channel *> Channel::allChildren() {
 	QSet<Channel *> seen;
 	if (! qlChannels.isEmpty()) {
 		QStack<Channel *> stack;
@@ -163,6 +164,14 @@ QSet<Channel *> Channel::allChildren() {
 		}
 	}
 	return seen;
+}
+
+void Channel::addAcl(ChanACL *a) {
+	qlACL << a;
+}
+
+void Channel::addGroup(Group *group, const QString &name) {
+	qhGroups[name] = group;
 }
 
 void Channel::addChannel(Channel *c) {

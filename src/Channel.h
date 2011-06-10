@@ -36,19 +36,19 @@
 class User;
 class Group;
 class ChanACL;
-
 class ClientUser;
 
 class Channel : public QObject {
 	private:
 		Q_OBJECT
 		Q_DISABLE_COPY(Channel)
-	private:
-		QSet<Channel *> qsUnseen;
-	public:
+
 		int iId;
 		int iPosition;
+		bool bInheritACL;
 		bool bTemporary;
+
+		QSet<Channel *> qsUnseen;
 		Channel *cParent;
 		QString qsName;
 		QString qsDesc;
@@ -59,12 +59,6 @@ class Channel : public QObject {
 		QList<ChanACL *> qlACL;
 
 		QSet<Channel *> qsPermLinks;
-		QHash<Channel *, int> qhLinks;
-
-		bool bInheritACL;
-
-		Channel(int id, const QString &name, QObject *p = NULL);
-		~Channel();
 
 #ifdef MUMBLE
 		unsigned int uiPermissions;
@@ -72,27 +66,68 @@ class Channel : public QObject {
 		static QHash<int, Channel *> c_qhChannels;
 		static QReadWriteLock c_qrwlChannels;
 
+	public:
 		static Channel *get(int);
 		static Channel *add(int, const QString &);
 		static void remove(Channel *);
+		static void resetPermissions();
 
 		void addClientUser(ClientUser *p);
+
+		unsigned int permissions() const { return uiPermissions; }
+		void set_permissions(unsigned int permissions) { uiPermissions = permissions; }
 #endif
-		static bool lessThan(const Channel *, const Channel *);
+
+	public:
+		Channel(int id, const QString &name, QObject *p = NULL);
+		~Channel();
+
+		int id() const { return iId; }
+		const QString &name() const { return qsName; }
+		const QString &description() const { return qsDesc; }
+		const QByteArray &description_hash() const { return qbaDescHash; }
+		int position() const { return iPosition; }
+		Channel *parent() const { return cParent; }
+		bool temporary() const { return bTemporary; }
+		bool inherit_acl() const { return bInheritACL; }
+		const QList<Channel *> &channels() const { return qlChannels; }
+		const QList<User *> &users() const { return qlUsers; }
+		const QHash<QString, Group *> &groups() const { return qhGroups; }
+		const QList<ChanACL *> &acls() const { return qlACL; }
+		const QSet<Channel *> &links() const { return qsPermLinks; }
+
+		void set_name(const QString &name) { qsName = name; }
+		void set_position(int position) { iPosition = position; }
+		void set_description(const QString &description) { qsDesc = description; }
+		void set_description_hash(const QByteArray &description_hash) { qbaDescHash = description_hash; }
+		void set_temporary(bool temporary) { bTemporary = temporary; }
+		void set_inherit_acl(bool inherit_acl) { bInheritACL = inherit_acl; }
+
+		void addAcl(ChanACL *a);
+		void removeAcl(ChanACL *a) { qlACL.removeAll(a); }
+		void clearAcls() { qlACL.clear(); }
 
 		void addChannel(Channel *c);
 		void removeChannel(Channel *c);
 		void addUser(User *p);
 		void removeUser(User *p);
 
+		void addGroup(Group *group, const QString &name);
+		Group *findGroup(const QString &name) { return qhGroups.value(name); }
+		void clearGroups() { qhGroups.clear(); }
+
 		bool isLinked(Channel *c) const;
 		void link(Channel *c);
 		void unlink(Channel *c = NULL);
+		int linkCount() const { return qsPermLinks.count(); }
+		int userCount() const { return qlUsers.count(); }
 
-		QSet<Channel *> allLinks();
-		QSet<Channel *> allChildren();
+		const QSet<Channel *> allLinks();
+		const QSet<Channel *> allChildren();
 
 		operator const QString() const;
+
+		static bool lessThan(const Channel *, const Channel *);
 };
 
 #endif

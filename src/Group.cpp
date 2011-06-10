@@ -41,7 +41,7 @@ Group::Group(Channel *assoc, const QString &name) {
 	bInheritable = true;
 	qsName = name;
 	if (c)
-		c->qhGroups[name] = this;
+		c->addGroup(this, name);
 }
 
 #ifdef MURMUR
@@ -55,7 +55,7 @@ QSet<int> Group::members() {
 
 	p = c;
 	while (p) {
-		g = p->qhGroups.value(qsName);
+		g = p->findGroup(qsName);
 		if (g) {
 			if ((p != c) && ! g->bInheritable)
 				break;
@@ -63,7 +63,7 @@ QSet<int> Group::members() {
 			if (! g->bInherit)
 				break;
 		}
-		p = p->cParent;
+		p = p->parent();
 	}
 
 	while (! s.isEmpty()) {
@@ -80,7 +80,7 @@ QSet<int> Group::members() {
 Group *Group::getGroup(Channel *chan, QString name) {
 	Channel *p = chan;
 	while (p) {
-		Group *g = p->qhGroups.value(name);
+		Group *g = p->findGroup(name);
 		if (g) {
 			if (chan == p)
 				return g;
@@ -89,7 +89,7 @@ Group *Group::getGroup(Channel *chan, QString name) {
 			else
 				return NULL;
 		}
-		p = p->cParent;
+		p = p->parent();
 	}
 	return NULL;
 }
@@ -102,12 +102,12 @@ QSet<QString> Group::groupNames(Channel *chan) {
 
 	while (c) {
 		s.push(c);
-		c = c->cParent;
+		c = c->parent();
 	}
 
 	while (! s.isEmpty()) {
 		c = s.pop();
-		foreach(g, c->qhGroups) {
+		foreach(g, c->groups()) {
 			if ((chan != c) && (! g->bInheritable))
 				m.remove(g->qsName);
 			else
@@ -203,13 +203,13 @@ bool Group::isMember(Channel *curChan, Channel *aclChan, QString name, ServerUse
 		p = home;
 		while (p) {
 			playerChain.prepend(p);
-			p = p->cParent;
+			p = p->parent();
 		}
 
 		p = curChan;
 		while (p) {
 			groupChain.prepend(p);
-			p = p->cParent;
+			p = p->parent();
 		}
 
 		int cofs = groupChain.indexOf(c);
@@ -240,7 +240,7 @@ bool Group::isMember(Channel *curChan, Channel *aclChan, QString name, ServerUse
 		p = c;
 
 		while (p) {
-			g = p->qhGroups.value(name);
+			g = p->findGroup(name);
 
 			if (g) {
 				if ((p != c) && ! g->bInheritable)
@@ -250,7 +250,7 @@ bool Group::isMember(Channel *curChan, Channel *aclChan, QString name, ServerUse
 					break;
 			}
 
-			p = p->cParent;
+			p = p->parent();
 		}
 
 		while (! s.isEmpty()) {

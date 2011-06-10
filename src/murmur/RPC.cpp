@@ -94,7 +94,7 @@ void Server::setUserState(User *pUser, Channel *cChannel, bool mute, bool deaf, 
 
 	if (cChannel != pUser->cChannel) {
 		changed = true;
-		mpus.set_channel_id(cChannel->iId);
+		mpus.set_channel_id(cChannel->id());
 		userEnterChannel(pUser, cChannel, mpus);
 	}
 
@@ -115,40 +115,40 @@ bool Server::setChannelState(Channel *cChannel, Channel *cParent, const QString 
 	bool updated = false;
 
 	MumbleProto::ChannelState mpcs;
-	mpcs.set_channel_id(cChannel->iId);
+	mpcs.set_channel_id(cChannel->id());
 
-	if (cChannel->qsName != qsName) {
-		cChannel->qsName = qsName;
+	if (cChannel->name() != qsName) {
+		cChannel->set_name(qsName);
 		mpcs.set_name(u8(qsName));
 		updated = true;
 		changed = true;
 	}
 
-	if ((cParent != cChannel) && (cParent != cChannel->cParent)) {
+	if ((cParent != cChannel) && (cParent != cChannel->parent())) {
 		Channel *p = cParent;
 		while (p) {
 			if (p == cChannel)
 				return false;
-			p = p->cParent;
+			p = p->parent();
 		}
 
-		cChannel->cParent->removeChannel(cChannel);
+		cChannel->parent()->removeChannel(cChannel);
 		cParent->addChannel(cChannel);
 
-		mpcs.set_parent(cParent->iId);
+		mpcs.set_parent(cParent->id());
 
 		updated = true;
 		changed = true;
 	}
 
-	const QSet<Channel *> &oldset = cChannel->qsPermLinks;
+	const QSet<Channel *> &oldset = cChannel->links();
 
 	if (links != oldset) {
 		// Remove
 		foreach(Channel *l, oldset) {
 			if (! links.contains(l)) {
 				removeLink(cChannel, l);
-				mpcs.add_links_remove(l->iId);
+				mpcs.add_links_remove(l->id());
 			}
 		}
 
@@ -156,24 +156,25 @@ bool Server::setChannelState(Channel *cChannel, Channel *cParent, const QString 
 		foreach(Channel *l, links) {
 			if (! oldset.contains(l)) {
 				addLink(cChannel, l);
-				mpcs.add_links_add(l->iId);
+				mpcs.add_links_add(l->id());
 			}
 		}
 
 		changed = true;
 	}
 
-	if (position != cChannel->iPosition) {
+	if (position != cChannel->position()) {
 		changed = true;
 		updated = true;
-		cChannel->iPosition = position;
+		cChannel->set_position(position);
 		mpcs.set_position(position);
 	}
 
-	if (! desc.isNull() && desc != cChannel->qsDesc) {
+	if (! desc.isNull() && desc != cChannel->description()) {
 		updated = true;
 		changed = true;
-		hashAssign(cChannel->qsDesc, cChannel->qbaDescHash, desc);
+		cChannel->set_description(desc);
+		cChannel->set_description_hash(hash(desc));
 		mpcs.set_description(u8(desc));
 	}
 
@@ -181,9 +182,9 @@ bool Server::setChannelState(Channel *cChannel, Channel *cParent, const QString 
 		updateChannel(cChannel);
 	if (changed) {
 		sendAll(mpcs, ~ 0x010202);
-		if (mpcs.has_description() && ! cChannel->qbaDescHash.isEmpty()) {
+		if (mpcs.has_description() && ! cChannel->description_hash().isEmpty()) {
 			mpcs.clear_description();
-			mpcs.set_description_hash(blob(cChannel->qbaDescHash));
+			mpcs.set_description_hash(blob(cChannel->description_hash()));
 		}
 		sendAll(mpcs, 0x010202);
 		emit channelStateChanged(cChannel);
@@ -201,9 +202,9 @@ void Server::sendTextMessage(Channel *cChannel, ServerUser *pUser, bool tree, co
 		sendMessage(pUser, mptm);
 	} else {
 		if (tree)
-			mptm.add_tree_id(cChannel->iId);
+			mptm.add_tree_id(cChannel->id());
 		else
-			mptm.add_channel_id(cChannel->iId);
+			mptm.add_channel_id(cChannel->id());
 
 		QSet<Channel *> chans;
 		QQueue<Channel *> q;
@@ -215,12 +216,12 @@ void Server::sendTextMessage(Channel *cChannel, ServerUser *pUser, bool tree, co
 			while (! q.isEmpty()) {
 				c = q.dequeue();
 				chans.insert(c);
-				foreach(c, c->qlChannels)
+				foreach(c, c->channels())
 					q.enqueue(c);
 			}
 		}
 		foreach(c, chans) {
-			foreach(User *p, c->qlUsers)
+			foreach(User *p, c->users())
 				sendMessage(static_cast<ServerUser *>(p), mptm);
 		}
 	}
@@ -230,13 +231,11 @@ void Server::setTempGroups(int userid, Channel *cChannel, const QStringList &gro
 	if (! cChannel)
 		cChannel = qhChannels.value(0);
 
-	Group *g;
-	foreach(g, cChannel->qhGroups)
+	foreach(Group *g, cChannel->groups())
 		g->qsTemporary.remove(userid);
 
-	QString gname;
-	foreach(gname, groups) {
-		g = cChannel->qhGroups.value(gname);
+	foreach(QString gname, groups) {
+		Group *g = cChannel->findGroup(gname);
 		if (! g) {
 			g = new Group(cChannel, gname);
 		}
@@ -258,13 +257,13 @@ void Server::clearTempGroups(User *user, Channel *cChannel, bool recurse) {
 	while (!qlChans.isEmpty()) {
 		Channel *chan = qlChans.takeLast();
 		Group *g;
-		foreach(g, chan->qhGroups) {
+		foreach(g, chan->groups()) {
 			g->qsTemporary.remove(user->iId);
 			g->qsTemporary.remove(- static_cast<int>(user->uiSession));
 		}
 
 		if (recurse)
-			qlChans << chan->qlChannels;
+			qlChans << chan->channels();
 	}
 
 	clearACLCache(user);

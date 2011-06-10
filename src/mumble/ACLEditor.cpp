@@ -85,16 +85,16 @@ ACLEditor::ACLEditor(int channelid, const MumbleProto::ACL &mea, QWidget *p) : Q
 	qcbChannelTemporary->hide();
 
 	iId = mea.channel_id();
-	setWindowTitle(tr("Mumble - Edit %1").arg(Channel::get(iId)->qsName));
+	setWindowTitle(tr("Mumble - Edit %1").arg(Channel::get(iId)->name()));
 
-	qleChannelName->setText(pChannel->qsName);
+	qleChannelName->setText(pChannel->name());
 	if (channelid == 0)
 		qleChannelName->setEnabled(false);
 
-	rteChannelDescription->setText(pChannel->qsDesc);
+	rteChannelDescription->setText(pChannel->description());
 
 	qsbChannelPosition->setRange(INT_MIN, INT_MAX);
-	qsbChannelPosition->setValue(pChannel->iPosition);
+	qsbChannelPosition->setValue(pChannel->position());
 
 	QGridLayout *grid = new QGridLayout(qgbACLpermissions);
 
@@ -251,18 +251,18 @@ void ACLEditor::accept() {
 		updatePasswordACL();
 
 		MumbleProto::ChannelState mpcs;
-		mpcs.set_channel_id(pChannel->iId);
-		if (pChannel->qsName != qleChannelName->text()) {
+		mpcs.set_channel_id(pChannel->id());
+		if (pChannel->name() != qleChannelName->text()) {
 			mpcs.set_name(u8(qleChannelName->text()));
 			b = true;
 		}
-		if (rteChannelDescription->isModified() && (pChannel->qsDesc != rteChannelDescription->text())) {
+		if (rteChannelDescription->isModified() && (pChannel->description() != rteChannelDescription->text())) {
 			const QString &msg = rteChannelDescription->text();
 			mpcs.set_description(u8(msg));
 			b = true;
 			Database::setBlob(sha1(msg), msg.toUtf8());
 		}
-		if (pChannel->iPosition != qsbChannelPosition->value()) {
+		if (pChannel->position() != qsbChannelPosition->value()) {
 			mpcs.set_position(qsbChannelPosition->value());
 			b = true;
 		}

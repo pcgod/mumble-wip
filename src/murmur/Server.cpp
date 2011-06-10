@@ -927,12 +927,12 @@ void Server::processMsg(ServerUser *u, const char *data, int len) {
 		return;
 	} else if (target == 0) { // Normal speech
 		buffer[0] = static_cast<char>(type | 0);
-		foreach(p, c->qlUsers) {
+		foreach(p, c->users()) {
 			ServerUser *pDst = static_cast<ServerUser *>(p);
 			SENDTO;
 		}
 
-		if (! c->qhLinks.isEmpty()) {
+		if (! c->links().isEmpty()) {
 			QSet<Channel *> chans = c->allLinks();
 			chans.remove(c);
 
@@ -940,7 +940,7 @@ void Server::processMsg(ServerUser *u, const char *data, int len) {
 
 			foreach(Channel *l, chans) {
 				if (ChanACL::hasPermission(u, l, ChanACL::Speak, acCache)) {
-					foreach(p, l->qlUsers) {
+					foreach(p, l->users()) {
 						ServerUser *pDst = static_cast<ServerUser *>(p);
 						SENDTO;
 					}
@@ -963,13 +963,13 @@ void Server::processMsg(ServerUser *u, const char *data, int len) {
 				foreach(const WhisperTarget::Channel &wtc, wt.qlChannels) {
 					Channel *wc = qhChannels.value(wtc.iId);
 					if (wc) {
-						bool link = wtc.bLinks && ! wc->qhLinks.isEmpty();
-						bool dochildren = wtc.bChildren && ! wc->qlChannels.isEmpty();
+						bool link = wtc.bLinks && ! wc->links().isEmpty();
+						bool dochildren = wtc.bChildren && ! wc->channels().isEmpty();
 						bool group = ! wtc.qsGroup.isEmpty();
 						if (!link && !dochildren && ! group) {
 							// Common case
 							if (ChanACL::hasPermission(u, wc, ChanACL::Whisper, acCache)) {
-								foreach(p, wc->qlUsers) {
+								foreach(p, wc->users()) {
 									channel.insert(static_cast<ServerUser *>(p));
 								}
 							}
@@ -985,7 +985,7 @@ void Server::processMsg(ServerUser *u, const char *data, int len) {
 							const QString &qsg = redirect.isEmpty() ? wtc.qsGroup : redirect;
 							foreach(Channel *tc, channels) {
 								if (ChanACL::hasPermission(u, tc, ChanACL::Whisper, acCache)) {
-									foreach(p, tc->qlUsers) {
+									foreach(p, tc->users()) {
 										ServerUser *su = static_cast<ServerUser *>(p);
 										if (! group || Group::isMember(tc, tc, qsg, su)) {
 											channel.insert(su);
@@ -1223,8 +1223,8 @@ void Server::connectionClosed(QAbstractSocket::SocketError err, const QString &r
 			old->removeUser(u);
 	}
 
-	if (old && old->bTemporary && old->qlUsers.isEmpty())
-		QCoreApplication::instance()->postEvent(this, new ExecEvent(boost::bind(&Server::removeChannel, this, old->iId)));
+	if (old && old->temporary() && old->users().isEmpty())
+		QCoreApplication::instance()->postEvent(this, new ExecEvent(boost::bind(&Server::removeChannel, this, old->id())));
 
 	if (static_cast<int>(u->uiSession) < iMaxUsers * 2)
 		qqIds.enqueue(u->uiSession); // Reinsert session id into pool
@@ -1373,39 +1373,39 @@ void Server::removeChannel(Channel *chan, Channel *dest) {
 	User *p;
 
 	if (dest == NULL)
-		dest = chan->cParent;
+		dest = chan->parent();
 
 	chan->unlink(NULL);
 
-	foreach(c, chan->qlChannels) {
+	foreach(c, chan->channels()) {
 		removeChannel(c, dest);
 	}
 
-	foreach(p, chan->qlUsers) {
+	foreach(p, chan->users()) {
 		chan->removeUser(p);
 
 		Channel *target = dest;
-		while (target->cParent && ! hasPermission(static_cast<ServerUser *>(p), target, ChanACL::Enter))
-			target = target->cParent;
+		while (target->parent() && ! hasPermission(static_cast<ServerUser *>(p), target, ChanACL::Enter))
+			target = target->parent();
 
 		MumbleProto::UserState mpus;
 		mpus.set_session(p->uiSession);
-		mpus.set_channel_id(target->iId);
+		mpus.set_channel_id(target->id());
 		userEnterChannel(p, target, mpus);
 		sendAll(mpus);
 		emit userStateChanged(p);
 	}
 
 	MumbleProto::ChannelRemove mpcr;
-	mpcr.set_channel_id(chan->iId);
+	mpcr.set_channel_id(chan->id());
 	sendAll(mpcr);
 
 	removeChannelDB(chan);
 	emit channelRemoved(chan);
 
-	if (chan->cParent) {
+	if (chan->parent()) {
 		QWriteLocker wl(&qrwlUsers);
-		chan->cParent->removeChannel(chan);
+		chan->parent()->removeChannel(chan);
 	}
 
 	delete chan;
@@ -1420,15 +1420,13 @@ bool Server::unregisterUser(int id) {
 
 		foreach(Channel *c, qhChannels) {
 			bool write = false;
-			QList<ChanACL *> ql = c->qlACL;
-
-			foreach(ChanACL *acl, ql) {
+			foreach(ChanACL *acl, c->acls()) {
 				if (acl->iUserId == id) {
-					c->qlACL.removeAll(acl);
+					c->removeAcl(acl);
 					write = true;
 				}
 			}
-			foreach(Group *g, c->qhGroups) {
+			foreach(Group *g, c->groups()) {
 				bool addrem = g->qsAdd.remove(id);
 				bool remrem = g->qsRemove.remove(id);
 				write = write || addrem || remrem;
@@ -1477,13 +1475,13 @@ void Server::userEnterChannel(User *p, Channel *c, MumbleProto::UserState &mpus)
 		mpus.set_suppress(p->bSuppress);
 	}
 
-	if (old && old->bTemporary && old->qlUsers.isEmpty()) {
-		QCoreApplication::instance()->postEvent(this, new ExecEvent(boost::bind(&Server::removeChannel, this, old->iId)));
+	if (old && old->temporary() && old->userCount() > 0) {
+		QCoreApplication::instance()->postEvent(this, new ExecEvent(boost::bind(&Server::removeChannel, this, old->id())));
 	}
 
 	sendClientPermission(static_cast<ServerUser *>(p), c);
-	if (c->cParent)
-		sendClientPermission(static_cast<ServerUser *>(p), c->cParent);
+	if (c->parent())
+		sendClientPermission(static_cast<ServerUser *>(p), c->parent());
 }
 
 bool Server::hasPermission(ServerUser *p, Channel *c, QFlags<ChanACL::Perm> perm) {
@@ -1504,13 +1502,13 @@ void Server::sendClientPermission(ServerUser *u, Channel *c, bool forceupdate) {
 	}
 
 	if (forceupdate)
-		u->iLastPermissionCheck = c->iId;
+		u->iLastPermissionCheck = c->id();
 
-	if (u->qmPermissionSent.value(c->iId) != perm) {
-		u->qmPermissionSent.insert(c->iId, perm);
+	if (u->qmPermissionSent.value(c->id()) != perm) {
+		u->qmPermissionSent.insert(c->id(), perm);
 
 		MumbleProto::PermissionQuery mppq;
-		mppq.set_channel_id(c->iId);
+		mppq.set_channel_id(c->id());
 		mppq.set_permissions(perm);
 
 		sendMessage(u, mppq);
@@ -1548,15 +1546,15 @@ void Server::flushClientPermissionCache(ServerUser *u, MumbleProto::PermissionQu
 	Channel *c = qhChannels.value(u->iLastPermissionCheck);
 	if (! c) {
 		c = u->cChannel;
-		u->iLastPermissionCheck = c->iId;
+		u->iLastPermissionCheck = c->id();
 	}
 
 	ChanACL::hasPermission(u, c, ChanACL::Enter, acCache);
 	unsigned int perm = acCache.value(u)->value(c);
-	u->qmPermissionSent.insert(c->iId, perm);
+	u->qmPermissionSent.insert(c->id(), perm);
 
 	mppq.Clear();
-	mppq.set_channel_id(c->iId);
+	mppq.set_channel_id(c->id());
 	mppq.set_permissions(perm);
 	mppq.set_flush(true);
 
@@ -1691,6 +1689,13 @@ void Server::hashAssign(QByteArray &dest, QByteArray &hash, const QByteArray &sr
 		hash = sha1(src);
 	else
 		hash = QByteArray();
+}
+
+QByteArray Server::hash(const QString &src) {
+	if (src.length() >= 128)
+		return sha1(src);
+	else
+		return QByteArray();
 }
 
 bool Server::isTextAllowed(QString &text, bool &changed) {

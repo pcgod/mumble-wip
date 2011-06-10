@@ -78,7 +78,7 @@ static void userToUser(const ::User *p, Murmur::User &mp) {
 	mp.prioritySpeaker = p->bPrioritySpeaker;
 	mp.selfMute = p->bSelfMute;
 	mp.selfDeaf = p->bSelfDeaf;
-	mp.channel = p->cChannel->iId;
+	mp.channel = p->cChannel->id();
 	mp.comment = u8(p->qsComment);
 
 	const ServerUser *u=static_cast<const ServerUser *>(p);
@@ -105,15 +105,15 @@ static void userToUser(const ::User *p, Murmur::User &mp) {
 }
 
 static void channelToChannel(const ::Channel *c, Murmur::Channel &mc) {
-	mc.id = c->iId;
-	mc.name = u8(c->qsName);
-	mc.parent = c->cParent ? c->cParent->iId : -1;
-	mc.description = u8(c->qsDesc);
-	mc.position = c->iPosition;
+	mc.id = c->id();
+	mc.name = u8(c->name());
+	mc.parent = c->parent() ? c->parent()->id() : -1;
+	mc.description = u8(c->description());
+	mc.position = c->position();
 	mc.links.clear();
-	foreach(::Channel *chn, c->qsPermLinks)
-		mc.links.push_back(chn->iId);
-	mc.temporary = c->bTemporary;
+	foreach(::Channel *chn, c->links())
+		mc.links.push_back(chn->id());
+	mc.temporary = c->temporary();
 }
 
 static void ACLtoACL(const ::ChanACL *acl, Murmur::ACL &ma) {
@@ -904,7 +904,7 @@ static void impl_Server_getChannels(const ::Murmur::AMD_Server_getChannelsPtr cb
 	foreach(const ::Channel *c, server->qhChannels) {
 		::Murmur::Channel mc;
 		channelToChannel(c, mc);
-		cm[c->iId] = mc;
+		cm[c->id()] = mc;
 	}
 	cb->ice_response(cm);
 }
@@ -920,7 +920,7 @@ static bool channelSort(const ::Channel *a, const ::Channel *b) {
 TreePtr recurseTree(const ::Channel *c) {
 	TreePtr t = new Tree();
 	channelToChannel(c, t->c);
-	QList< ::User *> users = c->qlUsers;
+	QList< ::User *> users = c->users();
 	qSort(users.begin(), users.end(), userSort);
 
 	foreach(const ::User *p, users) {
@@ -929,7 +929,7 @@ TreePtr recurseTree(const ::Channel *c) {
 		t->users.push_back(mp);
 	}
 
-	QList< ::Channel *> channels = c->qlChannels;
+	QList< ::Channel *> channels = c->channels();
 	qSort(channels.begin(), channels.end(), channelSort);
 
 	foreach(const ::Channel *chn, channels) {
@@ -1129,7 +1129,7 @@ static void impl_Server_setChannelState(const ::Murmur::AMD_Server_setChannelSta
 	NEED_SERVER;
 	NEED_CHANNEL;
 	::Channel *np = NULL;
-	if (channel->iId != 0) {
+	if (channel->id() != 0) {
 		NEED_CHANNEL_VAR(np, state.parent);
 	}
 
@@ -1152,7 +1152,7 @@ static void impl_Server_removeChannel(const ::Murmur::AMD_Server_removeChannelPt
 	NEED_SERVER;
 	NEED_CHANNEL;
 
-	if (!channel->cParent) {
+	if (!channel->parent()) {
 		cb->ice_exception(::Murmur::InvalidChannelException());
 	} else {
 		server->removeChannel(channel);
@@ -1169,7 +1169,7 @@ static void impl_Server_addChannel(const ::Murmur::AMD_Server_addChannelPtr cb, 
 
 	nc = server->addChannel(p, qsName);
 	server->updateChannel(nc);
-	int newid = nc->iId;
+	int newid = nc->id();
 
 	MumbleProto::ChannelState mpcs;
 	mpcs.set_channel_id(newid);
@@ -1194,17 +1194,17 @@ static void impl_Server_getACL(const ::Murmur::AMD_Server_getACLPtr cb, int serv
 	p = channel;
 	while (p) {
 		chans.push(p);
-		if ((p == channel) || (p->bInheritACL))
-			p = p->cParent;
+		if ((p == channel) || (p->inherit_acl()))
+			p = p->parent();
 		else
 			p = NULL;
 	}
 
-	bool inherit = channel->bInheritACL;
+	bool inherit = channel->inherit_acl();
 
 	while (! chans.isEmpty()) {
 		p = chans.pop();
-		foreach(acl, p->qlACL) {
+		foreach(acl, p->acls()) {
 			if ((p==channel) || (acl->bApplySubs)) {
 				::Murmur::ACL ma;
 				ACLtoACL(acl, ma);
@@ -1215,10 +1215,10 @@ static void impl_Server_getACL(const ::Murmur::AMD_Server_getACLPtr cb, int serv
 		}
 	}
 
-	p = channel->cParent;
+	p = channel->parent();
 	const QSet<QString> allnames = ::Group::groupNames(channel);
 	foreach(const QString &name, allnames) {
-		::Group *g = channel->qhGroups.value(name);
+		::Group *g = channel->findGroup(name);
 		::Group *pg = p ? ::Group::getGroup(p, name) : NULL;
 		if (!g && ! pg)
 			continue;
@@ -1246,24 +1246,21 @@ static void impl_Server_setACL(const ::Murmur::AMD_Server_setACLPtr cb, int serv
 	NEED_SERVER;
 	NEED_CHANNEL;
 
-	::Group *g;
-	ChanACL *acl;
-
 	QHash<QString, QSet<int> > hOldTemp;
-	foreach(g, channel->qhGroups) {
+	foreach(::Group *g, channel->groups()) {
 		hOldTemp.insert(g->qsName, g->qsTemporary);
 		delete g;
 	}
-	foreach(acl, channel->qlACL)
+	foreach(ChanACL *acl, channel->acls())
 		delete acl;
 
-	channel->qhGroups.clear();
-	channel->qlACL.clear();
+	channel->clearGroups();
+	channel->clearAcls();
 
-	channel->bInheritACL = inherit;
+	channel->set_inherit_acl(inherit);
 	foreach(const ::Murmur::Group &gi, groups) {
 		QString name = u8(gi.name);
-		g = new ::Group(channel, name);
+		::Group *g = new ::Group(channel, name);
 		g->bInherit = gi.inherit;
 		g->bInheritable = gi.inheritable;
 		g->qsAdd = QVector<int>::fromStdVector(gi.add).toList().toSet();
@@ -1271,7 +1268,7 @@ static void impl_Server_setACL(const ::Murmur::AMD_Server_setACLPtr cb, int serv
 		g->qsTemporary = hOldTemp.value(name);
 	}
 	foreach(const ::Murmur::ACL &ai, acls) {
-		acl = new ChanACL(channel);
+		ChanACL *acl = new ChanACL(channel);
 		acl->bApplyHere = ai.applyHere;
 		acl->bApplySubs = ai.applySubs;
 		acl->iUserId = ai.userid;
@@ -1460,7 +1457,7 @@ static void impl_Server_addUserToGroup(const ::Murmur::AMD_Server_addUserToGroup
 		return;
 	}
 
-	::Group *g = channel->qhGroups.value(qsgroup);
+	::Group *g = channel->findGroup(qsgroup);
 	if (! g)
 		g = new ::Group(channel, qsgroup);
 
@@ -1481,7 +1478,7 @@ static void impl_Server_removeUserFromGroup(const ::Murmur::AMD_Server_removeUse
 		return;
 	}
 
-	::Group *g = channel->qhGroups.value(qsgroup);
+	::Group *g = channel->findGroup(qsgroup);
 	if (! g)
 		g = new ::Group(channel, qsgroup);
 
