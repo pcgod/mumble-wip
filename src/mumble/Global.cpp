@@ -141,9 +141,7 @@ Global::Global() {
 	if (! qdBasePath.exists(QLatin1String("Overlay")))
 		qdBasePath.mkpath(QLatin1String("Overlay"));
 
-#if QT_VERSION >= 0x040500
 	qs->setIniCodec("UTF-8");
-#endif
 }
 
 Global::~Global() {

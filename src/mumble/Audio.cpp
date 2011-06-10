@@ -436,9 +436,7 @@ void Audio::stopOutput() {
 	g.ao.reset();
 
 	while (ao.get() && ! ao.unique()) {
-#if QT_VERSION >= 0x040500
 		QThread::yieldCurrentThread();
-#endif
 	}
 
 	ao.reset();
@@ -456,9 +454,7 @@ void Audio::stopInput() {
 	g.ai.reset();
 
 	while (ai.get() && ! ai.unique()) {
-#if QT_VERSION >= 0x040500
 		QThread::yieldCurrentThread();
-#endif
 	}
 
 	ai.reset();
@@ -477,9 +473,7 @@ void Audio::stop() {
 	g.ai.reset();
 
 	while ((ai.get() && ! ai.unique()) || (ao.get() && ! ao.unique())) {
-#if QT_VERSION >= 0x040500
 		QThread::yieldCurrentThread();
-#endif
 	}
 
 	ai.reset();

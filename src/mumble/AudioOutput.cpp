@@ -784,9 +784,7 @@ AudioOutputSample *AudioOutput::playSample(const QString &filename, bool loop) {
 		return NULL;
 
 	while ((iMixerFreq == 0) && isAlive()) {
-#if QT_VERSION >= 0x040500
 		QThread::yieldCurrentThread();
-#endif
 	}
 
 	if (! iMixerFreq)
@@ -814,9 +812,7 @@ void AudioOutput::addFrameToBuffer(ClientUser *user, const QByteArray &qbaPacket
 			removeBuffer(aop);
 
 		while ((iMixerFreq == 0) && isAlive()) {
-#if QT_VERSION >= 0x040500
 			QThread::yieldCurrentThread();
-#endif
 		}
 
 		if (! iMixerFreq)
